@@ -3,20 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>StockScan</title>
+<title>GreenVine Scan</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0a0a;
-    --surface: #141414;
-    --surface2: #1e1e1e;
-    --accent: #e8ff47;
-    --accent2: #47ffb4;
-    --text: #f0f0f0;
-    --muted: #666;
-    --danger: #ff4747;
-    --border: #2a2a2a;
+    --bg: #f5f7f2;
+    --surface: #ffffff;
+    --surface2: #eef2ea;
+    --green-dark: #2d5a1b;
+    --green-mid: #3d7a25;
+    --green-light: #5a9e3a;
+    --green-pale: #d4e8c8;
+    --accent: #e8621a;
+    --text: #1a2e10;
+    --muted: #7a8f70;
+    --danger: #c0392b;
+    --border: #d0dcc8;
+    --white: #ffffff;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -24,7 +28,7 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Syne', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -33,225 +37,240 @@
   }
 
   header {
-    padding: 20px 20px 12px;
+    background: var(--green-dark);
+    padding: 0 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--border);
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
   }
 
-  .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-  .logo span { color: var(--accent); }
+  .logo-wrap { display: flex; align-items: center; gap: 10px; }
+
+  .logo-leaf {
+    width: 36px; height: 36px;
+    background: var(--green-light);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .logo-leaf::after {
+    content: ''; width: 14px; height: 14px;
+    background: var(--white); border-radius: 50%; transform: rotate(45deg);
+  }
+
+  .logo-text { display: flex; flex-direction: column; line-height: 1; }
+  .logo-top { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 900; color: var(--white); }
+  .logo-bottom { font-size: 10px; color: var(--green-pale); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-top: 1px; }
 
   .order-badge {
-    background: var(--accent);
-    color: #000;
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: transform 0.1s;
+    background: var(--accent); color: var(--white);
+    font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 20px;
+    cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
   }
   .order-badge:active { transform: scale(0.95); }
 
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-  }
-
+  .tabs { display: flex; background: var(--green-dark); border-bottom: 3px solid var(--green-mid); }
   .tab {
-    flex: 1;
-    padding: 14px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-    letter-spacing: 0.5px;
+    flex: 1; padding: 12px; text-align: center; font-size: 12px; font-weight: 600;
+    color: var(--green-pale); cursor: pointer; border-bottom: 3px solid transparent;
+    margin-bottom: -3px; transition: all 0.2s; letter-spacing: 0.8px; text-transform: uppercase;
   }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab.active { color: var(--white); border-bottom-color: var(--accent); background: rgba(255,255,255,0.05); }
 
   .view { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
   .view.active { display: flex; }
 
-  .scan-area {
-    position: relative;
-    background: #000;
-    height: 240px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
+  .scan-area { position: relative; background: #111; height: 220px; overflow: hidden; }
   #scanner-container { width: 100%; height: 100%; position: relative; }
   #scanner-container video { width: 100%; height: 100%; object-fit: cover; }
   #scanner-container canvas.drawingBuffer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-
   .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-
-  .scan-frame { width: 220px; height: 100px; position: relative; }
-  .scan-frame::before, .scan-frame::after, .scan-frame .corner-br, .scan-frame .corner-bl {
-    content: ''; position: absolute; width: 24px; height: 24px; border-color: var(--accent); border-style: solid;
+  .scan-frame { width: 230px; height: 110px; position: relative; }
+  .scan-frame::before, .scan-frame::after, .scan-frame .c-br, .scan-frame .c-bl {
+    content: ''; position: absolute; width: 22px; height: 22px; border-color: var(--green-pale); border-style: solid;
   }
   .scan-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; }
-  .scan-frame::after { top: 0; right: 0; border-width: 3px 3px 0 0; }
-  .scan-frame .corner-br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
-  .scan-frame .corner-bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
-
+  .scan-frame::after  { top: 0; right: 0; border-width: 3px 3px 0 0; }
+  .scan-frame .c-br   { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+  .scan-frame .c-bl   { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
   .scan-line {
-    position: absolute; left: 10px; right: 10px; height: 2px;
-    background: var(--accent); box-shadow: 0 0 8px var(--accent);
+    position: absolute; left: 8px; right: 8px; height: 2px;
+    background: var(--green-light); box-shadow: 0 0 10px var(--green-light);
     animation: scanline 2s ease-in-out infinite; top: 0;
   }
-  @keyframes scanline { 0%, 100% { top: 10px; } 50% { top: 80px; } }
+  @keyframes scanline { 0%, 100% { top: 8px; } 50% { top: 94px; } }
+  .scan-placeholder {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px; color: #666; background: #111;
+  }
 
-  .scan-placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--muted); }
-  .scan-placeholder svg { opacity: 0.4; }
+  .green-stripe { height: 4px; background: linear-gradient(90deg, var(--green-dark), var(--green-light), var(--green-dark)); }
 
-  .scan-controls { padding: 16px 20px; display: flex; gap: 10px; }
-
+  .scan-controls { padding: 14px 16px; display: flex; gap: 10px; }
   .btn {
-    flex: 1; padding: 14px; border: none; border-radius: 10px;
-    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600;
-    cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px;
+    flex: 1; padding: 13px; border: none; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
   }
   .btn:active { transform: scale(0.97); }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-primary { background: var(--green-mid); color: var(--white); }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1.5px solid var(--border); }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .manual-input { padding: 0 20px 16px; display: flex; gap: 10px; }
+  .manual-input { padding: 0 16px 14px; display: flex; gap: 8px; }
   .manual-input input {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 16px; color: var(--text);
-    font-family: 'Space Mono', monospace; font-size: 14px; outline: none; transition: border-color 0.2s;
+    flex: 1; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 11px 14px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s;
   }
-  .manual-input input:focus { border-color: var(--accent); }
+  .manual-input input:focus { border-color: var(--green-mid); }
   .manual-input input::placeholder { color: var(--muted); }
   .manual-input button {
-    padding: 12px 18px; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; color: var(--accent); font-family: 'Syne', sans-serif;
+    padding: 11px 16px; background: var(--green-pale); border: 1.5px solid var(--green-mid);
+    border-radius: 8px; color: var(--green-dark); font-family: 'DM Sans', sans-serif;
     font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
   }
 
   .product-card {
-    margin: 0 20px 16px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; padding: 18px; display: none;
+    margin: 0 16px 16px; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 16px; display: none;
+    box-shadow: 0 2px 12px rgba(45,90,27,0.08);
   }
-  .product-card.visible { display: block; animation: slideUp 0.25s ease; }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .product-card.visible { display: block; animation: slideUp 0.2s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-  .product-upc { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
-  .product-name { font-size: 18px; font-weight: 800; line-height: 1.2; margin-bottom: 4px; }
-  .product-brand { font-size: 13px; color: var(--accent2); font-weight: 600; margin-bottom: 16px; }
+  .product-upc { font-size: 10px; color: var(--muted); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; font-weight: 500; }
 
-  .product-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-  .meta-box { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
-  .meta-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; font-family: 'Space Mono', monospace; }
+  .unknown-hint { font-size: 11px; color: var(--accent); margin-bottom: 10px; font-weight: 600; display: none; background: #fff5f0; border: 1px solid #f5c6a0; border-radius: 6px; padding: 8px 10px; }
 
-  .stock-edit { display: flex; align-items: center; gap: 8px; }
+  .product-name-input {
+    width: 100%; background: transparent; border: none; border-bottom: 2px solid var(--border);
+    font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700;
+    color: var(--text); outline: none; padding: 2px 0 6px; margin-bottom: 6px; transition: border-color 0.2s;
+  }
+  .product-name-input:focus { border-bottom-color: var(--green-mid); }
+
+  .product-brand-input {
+    width: 100%; background: transparent; border: none; border-bottom: 2px solid var(--border);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    color: var(--green-mid); outline: none; padding: 2px 0 6px; margin-bottom: 16px; transition: border-color 0.2s;
+  }
+  .product-brand-input:focus { border-bottom-color: var(--green-mid); }
+
+  .product-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .meta-box { background: var(--surface2); border-radius: 8px; padding: 10px 12px; border: 1px solid var(--border); }
+  .meta-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
+
+  .stock-edit { display: flex; align-items: center; gap: 6px; }
   .stock-edit input {
-    width: 60px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 8px; color: var(--text); font-family: 'Space Mono', monospace;
-    font-size: 16px; font-weight: 700; text-align: center; outline: none;
+    width: 54px; background: var(--white); border: 1.5px solid var(--border); border-radius: 6px;
+    padding: 5px; color: var(--text); font-size: 18px; font-weight: 700; text-align: center; outline: none;
   }
-  .stock-edit input:focus { border-color: var(--accent); }
+  .stock-edit input:focus { border-color: var(--green-mid); }
   .stock-edit button {
-    width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px;
-    background: var(--surface2); color: var(--text); font-size: 18px; cursor: pointer;
+    width: 28px; height: 28px; border: 1.5px solid var(--border); border-radius: 6px;
+    background: var(--white); color: var(--text); font-size: 18px; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
+  .stock-edit button:hover { background: var(--green-pale); }
+
+  .upc-display { font-size: 11px; color: var(--muted); word-break: break-all; margin-top: 2px; font-family: monospace; }
 
   .vendor-row { margin-bottom: 14px; }
-  .vendor-row label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-family: 'Space Mono', monospace; display: block; margin-bottom: 6px; }
+  .vendor-row label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 6px; font-weight: 600; }
   .vendor-row input {
-    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
     border-radius: 8px; padding: 10px 12px; color: var(--text);
-    font-family: 'Syne', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s;
   }
-  .vendor-row input:focus { border-color: var(--accent); }
+  .vendor-row input:focus { border-color: var(--green-mid); }
   .vendor-row input::placeholder { color: var(--muted); }
-  .vendor-saved { font-size: 11px; color: var(--accent2); margin-top: 4px; font-family: 'Space Mono', monospace; }
+  .vendor-saved { font-size: 11px; color: var(--green-mid); margin-top: 4px; font-weight: 600; }
 
-  .order-section {
-    display: flex; gap: 10px; align-items: flex-end;
-    padding-top: 14px; border-top: 1px solid var(--border); margin-top: 4px;
-  }
+  .order-section { display: flex; gap: 10px; align-items: flex-end; padding-top: 14px; border-top: 1.5px solid var(--border); }
   .order-qty-wrap { flex: 1; }
-  .order-qty-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-family: 'Space Mono', monospace; margin-bottom: 6px; }
+  .order-qty-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
   .qty-stepper { display: flex; align-items: center; gap: 8px; }
   .qty-stepper button {
-    width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 8px;
+    width: 34px; height: 34px; border: 1.5px solid var(--border); border-radius: 8px;
     background: var(--surface2); color: var(--text); font-size: 20px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
   }
+  .qty-stepper button:hover { background: var(--green-pale); }
   .qty-stepper input {
-    width: 50px; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 6px; color: var(--text); font-family: 'Space Mono', monospace;
-    font-size: 18px; font-weight: 700; text-align: center; outline: none;
+    width: 50px; background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 6px; color: var(--text); font-size: 18px; font-weight: 700; text-align: center; outline: none;
   }
+
   .btn-add-order {
-    padding: 10px 18px; background: var(--accent); color: #000; border: none;
-    border-radius: 10px; font-family: 'Syne', sans-serif; font-size: 13px;
-    font-weight: 700; cursor: pointer; white-space: nowrap;
+    padding: 10px 16px; background: var(--green-dark); color: var(--white); border: none;
+    border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: all 0.15s;
   }
+  .btn-add-order:hover { background: var(--green-mid); }
   .btn-add-order:active { transform: scale(0.95); }
   .btn-add-order:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .toast {
     position: fixed; bottom: 24px; left: 50%;
     transform: translateX(-50%) translateY(80px);
-    background: var(--accent); color: #000; padding: 12px 20px;
-    border-radius: 50px; font-weight: 700; font-size: 13px;
+    background: var(--green-dark); color: var(--white); padding: 12px 20px;
+    border-radius: 50px; font-weight: 600; font-size: 13px;
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     z-index: 100; white-space: nowrap; pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
-  .toast.error { background: var(--danger); color: #fff; }
+  .toast.error { background: var(--danger); }
 
-  .view-header { padding: 16px 20px 8px; display: flex; align-items: center; justify-content: space-between; }
-  .view-title { font-size: 20px; font-weight: 800; }
-  .count-chip { font-family: 'Space Mono', monospace; font-size: 11px; background: var(--surface2); padding: 4px 10px; border-radius: 20px; color: var(--muted); }
+  .view-header { padding: 16px 16px 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .view-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--green-dark); }
+  .count-chip { font-size: 11px; background: var(--green-pale); color: var(--green-dark); padding: 4px 10px; border-radius: 20px; font-weight: 600; }
 
-  .item-list { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .item-list { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 8px; }
 
-  .inv-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; }
+  .inv-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
   .inv-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .inv-info { flex: 1; min-width: 0; }
   .inv-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .inv-brand { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .inv-stock { font-family: 'Space Mono', monospace; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+  .inv-stock { font-size: 18px; font-weight: 700; flex-shrink: 0; }
 
-  .order-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; }
+  .order-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
   .order-info { flex: 1; min-width: 0; }
   .order-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .order-supplier { font-size: 11px; color: var(--accent2); margin-top: 2px; }
-  .order-qty-badge { background: var(--accent); color: #000; font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
+  .order-supplier { font-size: 11px; color: var(--green-mid); margin-top: 2px; font-weight: 500; }
+  .order-qty-badge { background: var(--green-dark); color: var(--white); font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
 
-  .export-bar { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+  .export-bar { padding: 14px 16px; border-top: 1.5px solid var(--border); background: var(--surface); margin-top: auto; }
   .export-bar-row { display: flex; gap: 10px; }
 
-  .loading-state { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; font-family: 'Space Mono', monospace; }
-  .loading-dots::after { content: ''; animation: dots 1.2s steps(3, end) infinite; }
-  @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+  .loading-state { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--green-pale); border-top-color: var(--green-mid); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  .error-card { margin: 0 20px 12px; background: rgba(255,71,71,0.1); border: 1px solid rgba(255,71,71,0.3); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--danger); }
+  .error-card { margin: 0 16px 12px; background: #fff8f7; border: 1.5px solid #f5c6c0; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--danger); }
 
-  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
-  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+  .empty-icon { font-size: 44px; margin-bottom: 10px; opacity: 0.5; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">Stock<span>Scan</span></div>
-  <div class="order-badge" onclick="switchTab('orders')">Orders: <span id="order-count">0</span></div>
+  <div class="logo-wrap">
+    <div class="logo-leaf"></div>
+    <div class="logo-text">
+      <span class="logo-top">GreenVine</span>
+      <span class="logo-bottom">Scan</span>
+    </div>
+  </div>
+  <button class="order-badge" onclick="switchTab('orders')">🛒 Orders: <span id="order-count">0</span></button>
 </header>
 
 <div class="tabs">
@@ -265,24 +284,26 @@
   <div class="scan-area">
     <div id="scanner-container">
       <div class="scan-placeholder" id="scan-placeholder">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3d7a25" stroke-width="1.5" opacity="0.7">
           <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
           <rect x="3" y="14" width="7" height="7" rx="1"/>
           <path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/>
         </svg>
-        <span style="font-size:13px">Camera off</span>
+        <span style="font-size:13px;color:#555">Camera off</span>
       </div>
     </div>
     <div class="scan-overlay" id="scan-overlay" style="display:none">
       <div class="scan-frame">
-        <div class="corner-br"></div><div class="corner-bl"></div>
+        <div class="c-br"></div><div class="c-bl"></div>
         <div class="scan-line"></div>
       </div>
     </div>
   </div>
 
+  <div class="green-stripe"></div>
+
   <div class="scan-controls">
-    <button class="btn btn-primary" id="btn-scan" onclick="toggleScanner()">Start Camera</button>
+    <button class="btn btn-primary" id="btn-scan" onclick="toggleScanner()">📷 Start Camera</button>
     <button class="btn btn-secondary" onclick="resetScan()">Clear</button>
   </div>
 
@@ -292,15 +313,16 @@
   </div>
 
   <div id="loading" class="loading-state" style="display:none">
-    <span class="loading-dots">Looking up product</span>
+    <div class="spinner"></div>Looking up product...
   </div>
 
   <div id="error-msg" class="error-card" style="display:none"></div>
 
   <div class="product-card" id="product-card">
     <div class="product-upc" id="p-upc"></div>
-    <div class="product-name" id="p-name"></div>
-    <div class="product-brand" id="p-brand"></div>
+    <div class="unknown-hint" id="unknown-hint">⚠ Product not found in database — fill in the details below and save</div>
+    <input class="product-name-input" id="p-name" type="text" placeholder="Enter product name..." onchange="saveProductData()" />
+    <input class="product-brand-input" id="p-brand" type="text" placeholder="Enter brand..." onchange="saveProductData()" />
 
     <div class="product-meta">
       <div class="meta-box">
@@ -313,7 +335,7 @@
       </div>
       <div class="meta-box">
         <div class="meta-label">UPC</div>
-        <div style="font-family:'Space Mono';font-size:11px;word-break:break-all;color:var(--muted);margin-top:4px" id="p-upc-display"></div>
+        <div class="upc-display" id="p-upc-display"></div>
       </div>
     </div>
 
@@ -355,7 +377,7 @@
     <div class="count-chip" id="orders-count">0 items</div>
   </div>
   <div class="item-list" id="order-list">
-    <div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.<br>Scan a product and add it to your order.</div>
+    <div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div>
   </div>
   <div class="export-bar">
     <div class="export-bar-row">
@@ -368,89 +390,55 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ─────────────────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────────────────
 const API_URL = 'https://script.google.com/macros/s/AKfycbzGh2QZ-my-kMEOTw87T77xbnC-dqCOCrHLKQiELJ5Z2sG4qyLlKfkdx0zrwf0kr53mkg/exec';
 
-// ─── State ───────────────────────────────────────────────
 let currentProduct = null;
 let scannerRunning = false;
 let lastScanned = '';
 let ordersCache = [];
 
-// ─── API — ALL calls use GET to avoid CORS issues ────────
 async function api(params) {
   try {
-    const url = API_URL + '?' + new URLSearchParams(params);
-    const res = await fetch(url, { method: 'GET' });
-    const text = await res.text();
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('API error:', e);
-    return { error: e.message };
-  }
+    const res = await fetch(API_URL + '?' + new URLSearchParams(params), { method: 'GET' });
+    return JSON.parse(await res.text());
+  } catch (e) { return { error: e.message }; }
 }
 
-// ─── Tabs ─────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', ['scan','inventory','orders'][i] === name);
-  });
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['scan','inventory','orders'][i] === name));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (name === 'inventory') loadInventory();
   if (name === 'orders') loadOrders();
 }
 
-// ─── Scanner ──────────────────────────────────────────────
-function toggleScanner() {
-  scannerRunning ? stopScanner() : startScanner();
-}
+function toggleScanner() { scannerRunning ? stopScanner() : startScanner(); }
 
 function startScanner() {
   document.getElementById('scan-placeholder').style.display = 'none';
   document.getElementById('scan-overlay').style.display = 'flex';
-  document.getElementById('btn-scan').textContent = 'Stop Camera';
-
+  document.getElementById('btn-scan').textContent = '⏹ Stop Camera';
   Quagga.init({
-    inputStream: {
-      name: "Live", type: "LiveStream",
-      target: document.getElementById('scanner-container'),
-      constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-    },
+    inputStream: { name: "Live", type: "LiveStream", target: document.getElementById('scanner-container'), constraints: { facingMode: "environment" } },
     decoder: { readers: ["ean_reader","upc_reader","upc_e_reader","code_128_reader"] },
     locate: true
   }, (err) => {
-    if (err) {
-      showError("Camera access denied. Use manual entry below.");
-      document.getElementById('scan-placeholder').style.display = 'flex';
-      document.getElementById('scan-overlay').style.display = 'none';
-      document.getElementById('btn-scan').textContent = 'Start Camera';
-      return;
-    }
-    Quagga.start();
-    scannerRunning = true;
+    if (err) { showError("Camera access denied. Use manual entry."); stopScanner(); return; }
+    Quagga.start(); scannerRunning = true;
   });
-
   Quagga.onDetected((result) => {
     const code = result.codeResult.code;
-    if (code && code !== lastScanned) {
-      lastScanned = code;
-      stopScanner();
-      lookupUPC(code);
-    }
+    if (code && code !== lastScanned) { lastScanned = code; stopScanner(); lookupUPC(code); }
   });
 }
 
 function stopScanner() {
   if (scannerRunning) { Quagga.stop(); scannerRunning = false; }
-  document.getElementById('btn-scan').textContent = 'Start Camera';
+  document.getElementById('btn-scan').textContent = '📷 Start Camera';
   document.getElementById('scan-overlay').style.display = 'none';
   document.getElementById('scan-placeholder').style.display = 'flex';
 }
 
-// ─── Lookup ───────────────────────────────────────────────
 function lookupManual() {
   const val = document.getElementById('manual-upc').value.trim();
   if (val) lookupUPC(val);
@@ -460,36 +448,30 @@ async function lookupUPC(upc) {
   document.getElementById('product-card').classList.remove('visible');
   document.getElementById('error-msg').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
-
   try {
-    // Check our sheet first
     const sheetData = await api({ action: 'getProduct', upc });
-    const savedProduct = sheetData.found ? sheetData : null;
+    const saved = sheetData.found ? sheetData : null;
 
-    // Look up Open Food Facts
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${upc}.json`);
     const data = await res.json();
     document.getElementById('loading').style.display = 'none';
 
-    let name = 'Product Not Found';
-    let brand = 'Enter details manually';
-
+    let name = '', brand = '', foundInDB = false;
     if (data.status === 1 && data.product) {
-      name = data.product.product_name || data.product.product_name_en || 'Unknown Product';
-      brand = data.product.brands || 'Unknown Brand';
-    } else {
-      showError('UPC not in Open Food Facts. You can still save it manually.');
+      name = data.product.product_name || data.product.product_name_en || '';
+      brand = data.product.brands || '';
+      foundInDB = true;
     }
 
     showProduct({
       upc,
-      name:    savedProduct ? savedProduct.name   : name,
-      brand:   savedProduct ? savedProduct.brand  : brand,
-      vendor:  savedProduct ? savedProduct.vendor : '',
-      stock:   savedProduct ? savedProduct.stock  : 0,
-      isKnown: !!savedProduct
+      name:      saved ? saved.name   : name,
+      brand:     saved ? saved.brand  : brand,
+      vendor:    saved ? saved.vendor : '',
+      stock:     saved ? saved.stock  : 0,
+      isKnown:   !!saved,
+      foundInDB: foundInDB || !!saved
     });
-
   } catch (e) {
     document.getElementById('loading').style.display = 'none';
     showError('Network error. Check your connection.');
@@ -500,43 +482,32 @@ function showProduct(product) {
   currentProduct = product;
   document.getElementById('p-upc').textContent = 'UPC: ' + product.upc;
   document.getElementById('p-upc-display').textContent = product.upc;
-  document.getElementById('p-name').textContent = product.name;
-  document.getElementById('p-brand').textContent = product.brand;
-  document.getElementById('p-stock').value = product.stock || 0;
+  document.getElementById('p-name').value  = product.name  || '';
+  document.getElementById('p-brand').value = product.brand || '';
+  document.getElementById('p-stock').value  = product.stock  || 0;
   document.getElementById('p-vendor').value = product.vendor || '';
   document.getElementById('order-qty').value = 1;
-
-  const vendorSaved = document.getElementById('vendor-saved');
-  vendorSaved.style.display = (product.isKnown && product.vendor) ? 'block' : 'none';
-
+  document.getElementById('unknown-hint').style.display = product.foundInDB ? 'none' : 'block';
+  document.getElementById('vendor-saved').style.display = (product.isKnown && product.vendor) ? 'block' : 'none';
   document.getElementById('product-card').classList.add('visible');
 }
 
-// ─── Save product ─────────────────────────────────────────
 async function saveProductData() {
   if (!currentProduct) return;
+  const name   = document.getElementById('p-name').value.trim();
+  const brand  = document.getElementById('p-brand').value.trim();
   const stock  = parseInt(document.getElementById('p-stock').value) || 0;
   const vendor = document.getElementById('p-vendor').value.trim();
-  currentProduct = { ...currentProduct, stock, vendor };
-
-  await api({
-    action: 'saveProduct',
-    upc:   currentProduct.upc,
-    name:  currentProduct.name,
-    brand: currentProduct.brand,
-    vendor,
-    stock
-  });
+  currentProduct = { ...currentProduct, name, brand, stock, vendor };
+  await api({ action: 'saveProduct', upc: currentProduct.upc, name, brand, vendor, stock });
 }
 
-// ─── Stock ────────────────────────────────────────────────
 function adjustStock(delta) {
   const input = document.getElementById('p-stock');
   input.value = Math.max(0, parseInt(input.value || 0) + delta);
   saveProductData();
 }
 
-// ─── Order ────────────────────────────────────────────────
 function adjustQty(delta) {
   const input = document.getElementById('order-qty');
   input.value = Math.max(1, parseInt(input.value || 1) + delta);
@@ -544,96 +515,68 @@ function adjustQty(delta) {
 
 async function addToOrder() {
   if (!currentProduct) return;
+  const name = document.getElementById('p-name').value.trim();
+  if (!name) { showToast('Please enter a product name first', true); return; }
 
   const btn = document.getElementById('btn-add-order');
-  btn.textContent = 'Adding...';
-  btn.disabled = true;
-
+  btn.textContent = 'Adding...'; btn.disabled = true;
   await saveProductData();
 
   const qty    = parseInt(document.getElementById('order-qty').value) || 1;
   const vendor = document.getElementById('p-vendor').value.trim();
+  const brand  = document.getElementById('p-brand').value.trim();
 
-  const result = await api({
-    action: 'addOrder',
-    upc:   currentProduct.upc,
-    name:  currentProduct.name,
-    brand: currentProduct.brand,
-    vendor,
-    qty
-  });
+  const result = await api({ action: 'addOrder', upc: currentProduct.upc, name, brand, vendor, qty });
+  btn.textContent = '+ Add to Order'; btn.disabled = false;
 
-  btn.textContent = '+ Add to Order';
-  btn.disabled = false;
-
-  if (result.error) {
-    showToast('Error saving order', true);
-    return;
-  }
-
-  ordersCache.push({ ...currentProduct, qty, vendor });
+  if (result.error) { showToast('Error saving order', true); return; }
+  ordersCache.push({ ...currentProduct, name, brand, qty, vendor });
   document.getElementById('order-count').textContent = ordersCache.length;
-  showToast(`Added ${qty}× ${currentProduct.name} to order`);
+  showToast(`Added ${qty}× ${name} to order`);
 }
 
-// ─── Load Inventory ───────────────────────────────────────
 async function loadInventory() {
   const list = document.getElementById('inv-list');
-  list.innerHTML = `<div class="loading-state"><span class="loading-dots">Loading inventory</span></div>`;
-
+  list.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading...</div>`;
   const data = await api({ action: 'getInventory' });
   const items = data.items || [];
   document.getElementById('inv-count').textContent = items.length + ' items';
-
-  if (!items.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div>`;
-    return;
-  }
-
-  list.innerHTML = items.sort((a,b) => a.stock - b.stock).map(item => {
+  if (!items.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div>`; return; }
+  list.innerHTML = items.sort((a,b) => Number(a.stock) - Number(b.stock)).map(item => {
     const low = Number(item.stock) <= 5;
-    const color = low ? 'var(--danger)' : 'var(--accent2)';
+    const color = low ? 'var(--danger)' : 'var(--green-mid)';
     return `<div class="inv-item">
       <div class="inv-dot" style="background:${color}"></div>
       <div class="inv-info">
-        <div class="inv-name">${item.name}</div>
-        <div class="inv-brand">${item.brand}${item.vendor ? ' · ' + item.vendor : ''}</div>
+        <div class="inv-name">${item.name || 'Unknown'}</div>
+        <div class="inv-brand">${item.brand || ''}${item.vendor ? ' · ' + item.vendor : ''}</div>
       </div>
       <div class="inv-stock" style="color:${color}">${item.stock}</div>
     </div>`;
   }).join('');
 }
 
-// ─── Load Orders ──────────────────────────────────────────
 async function loadOrders() {
   const list = document.getElementById('order-list');
-  list.innerHTML = `<div class="loading-state"><span class="loading-dots">Loading orders</span></div>`;
-
+  list.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading...</div>`;
   const data = await api({ action: 'getOrders' });
   const orders = data.orders || [];
   ordersCache = orders;
   document.getElementById('orders-count').textContent = orders.length + ' items';
   document.getElementById('order-count').textContent = orders.length;
-
-  if (!orders.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div>`;
-    return;
-  }
-
+  if (!orders.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div>`; return; }
   list.innerHTML = orders.map(o => `
     <div class="order-item">
       <div class="order-info">
         <div class="order-name">${o.name}</div>
-        <div class="order-supplier">${o.vendor || 'No vendor set'} · ${o.brand}</div>
+        <div class="order-supplier">${o.vendor || 'No vendor'} · ${o.brand || ''}</div>
       </div>
       <div class="order-qty-badge">×${o.qty}</div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
-// ─── Clear Orders ─────────────────────────────────────────
 async function clearOrders() {
-  if (!confirm('Clear all orders from the sheet?')) return;
+  if (!confirm('Clear all orders?')) return;
   await api({ action: 'clearOrders' });
   ordersCache = [];
   document.getElementById('order-count').textContent = '0';
@@ -641,44 +584,32 @@ async function clearOrders() {
   showToast('Orders cleared');
 }
 
-// ─── Export CSV ───────────────────────────────────────────
 function exportCSV() {
   if (!ordersCache.length) { showToast('No orders to export'); return; }
   const rows = [['Date','Product Name','Brand','UPC','Order Qty','Vendor']];
-  ordersCache.forEach(o => rows.push([o.date||'', o.name, o.brand, o.upc, o.qty, o.vendor||'']));
+  ordersCache.forEach(o => rows.push([o.date||'', o.name, o.brand||'', o.upc, o.qty, o.vendor||'']));
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `orders-${new Date().toISOString().slice(0,10)}.csv`;
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `greenvine-orders-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   showToast('CSV exported!');
 }
 
-// ─── Helpers ──────────────────────────────────────────────
 function resetScan() {
-  stopScanner();
-  currentProduct = null;
-  lastScanned = '';
+  stopScanner(); currentProduct = null; lastScanned = '';
   document.getElementById('product-card').classList.remove('visible');
   document.getElementById('error-msg').style.display = 'none';
   document.getElementById('manual-upc').value = '';
 }
 
-function showError(msg) {
-  const el = document.getElementById('error-msg');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
+function showError(msg) { const el = document.getElementById('error-msg'); el.textContent = msg; el.style.display = 'block'; }
 
 let toastTimer;
 function showToast(msg, isError) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast' + (isError ? ' error' : '');
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+  t.textContent = msg; t.className = 'toast' + (isError ? ' error' : ''); t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 </script>
 </body>
