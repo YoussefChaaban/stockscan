@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>StockScan</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --accent: #e8ff47;
+    --accent2: #47ffb4;
+    --text: #f0f0f0;
+    --muted: #666;
+    --danger: #ff4747;
+    --border: #2a2a2a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  header {
+    padding: 20px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+
+  .order-badge {
+    background: var(--accent);
+    color: #000;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .order-badge:active { transform: scale(0.95); }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .tab {
+    flex: 1;
+    padding: 14px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .view { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
+  .view.active { display: flex; }
+
+  /* SCAN */
+  .scan-area {
+    position: relative;
+    background: #000;
+    height: 240px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #scanner-container { width: 100%; height: 100%; position: relative; }
+  #scanner-container video { width: 100%; height: 100%; object-fit: cover; }
+  #scanner-container canvas.drawingBuffer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+
+  .scan-frame { width: 220px; height: 100px; position: relative; }
+  .scan-frame::before, .scan-frame::after, .scan-frame .corner-br, .scan-frame .corner-bl {
+    content: ''; position: absolute; width: 24px; height: 24px; border-color: var(--accent); border-style: solid;
+  }
+  .scan-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; }
+  .scan-frame::after { top: 0; right: 0; border-width: 3px 3px 0 0; }
+  .scan-frame .corner-br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+  .scan-frame .corner-bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
+
+  .scan-line {
+    position: absolute; left: 10px; right: 10px; height: 2px;
+    background: var(--accent); box-shadow: 0 0 8px var(--accent);
+    animation: scanline 2s ease-in-out infinite; top: 0;
+  }
+  @keyframes scanline { 0%, 100% { top: 10px; } 50% { top: 80px; } }
+
+  .scan-placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--muted); }
+  .scan-placeholder svg { opacity: 0.4; }
+
+  .scan-controls { padding: 16px 20px; display: flex; gap: 10px; }
+
+  .btn {
+    flex: 1; padding: 14px; border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .manual-input { padding: 0 20px 16px; display: flex; gap: 10px; }
+  .manual-input input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; color: var(--text);
+    font-family: 'Space Mono', monospace; font-size: 14px; outline: none; transition: border-color 0.2s;
+  }
+  .manual-input input:focus { border-color: var(--accent); }
+  .manual-input input::placeholder { color: var(--muted); }
+  .manual-input button {
+    padding: 12px 18px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--accent); font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+
+  /* Product card */
+  .product-card {
+    margin: 0 20px 16px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px; display: none;
+  }
+  .product-card.visible { display: block; animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .product-upc { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
+  .product-name { font-size: 18px; font-weight: 800; line-height: 1.2; margin-bottom: 4px; }
+  .product-brand { font-size: 13px; color: var(--accent2); font-weight: 600; margin-bottom: 16px; }
+
+  .product-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .meta-box { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+  .meta-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; font-family: 'Space Mono', monospace; }
+  .meta-value { font-size: 20px; font-weight: 800; color: var(--text); }
+
+  .stock-edit { display: flex; align-items: center; gap: 8px; }
+  .stock-edit input {
+    width: 60px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px; color: var(--text); font-family: 'Space Mono', monospace;
+    font-size: 16px; font-weight: 700; text-align: center; outline: none;
+  }
+  .stock-edit input:focus { border-color: var(--accent); }
+  .stock-edit button {
+    width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface2); color: var(--text); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+
+  /* Vendor input */
+  .vendor-row { margin-bottom: 14px; }
+  .vendor-row label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-family: 'Space Mono', monospace; display: block; margin-bottom: 6px; }
+  .vendor-row input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s;
+  }
+  .vendor-row input:focus { border-color: var(--accent); }
+  .vendor-row input::placeholder { color: var(--muted); }
+  .vendor-saved { font-size: 11px; color: var(--accent2); margin-top: 4px; font-family: 'Space Mono', monospace; }
+
+  /* Order section */
+  .order-section {
+    display: flex; gap: 10px; align-items: flex-end;
+    padding-top: 14px; border-top: 1px solid var(--border); margin-top: 4px;
+  }
+  .order-qty-wrap { flex: 1; }
+  .order-qty-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-family: 'Space Mono', monospace; margin-bottom: 6px; }
+  .qty-stepper { display: flex; align-items: center; gap: 8px; }
+  .qty-stepper button {
+    width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface2); color: var(--text); font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qty-stepper input {
+    width: 50px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px; color: var(--text); font-family: 'Space Mono', monospace;
+    font-size: 18px; font-weight: 700; text-align: center; outline: none;
+  }
+  .btn-add-order {
+    padding: 10px 18px; background: var(--accent); color: #000; border: none;
+    border-radius: 10px; font-family: 'Syne', sans-serif; font-size: 13px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .btn-add-order:active { transform: scale(0.95); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--accent); color: #000; padding: 12px 20px;
+    border-radius: 50px; font-weight: 700; font-size: 13px;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 100; white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--danger); color: #fff; }
+
+  /* Inventory & Orders */
+  .view-header { padding: 16px 20px 8px; display: flex; align-items: center; justify-content: space-between; }
+  .view-title { font-size: 20px; font-weight: 800; }
+  .count-chip { font-family: 'Space Mono', monospace; font-size: 11px; background: var(--surface2); padding: 4px 10px; border-radius: 20px; color: var(--muted); }
+
+  .item-list { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+
+  .inv-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; }
+  .inv-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .inv-info { flex: 1; min-width: 0; }
+  .inv-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inv-brand { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .inv-stock { font-family: 'Space Mono', monospace; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+
+  .order-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; }
+  .order-info { flex: 1; min-width: 0; }
+  .order-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .order-supplier { font-size: 11px; color: var(--accent2); margin-top: 2px; }
+  .order-qty-badge { background: var(--accent); color: #000; font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
+  .order-remove { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); width: 28px; height: 28px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  .export-bar { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+  .export-bar-row { display: flex; gap: 10px; }
+
+  .loading-state { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; font-family: 'Space Mono', monospace; }
+  .loading-dots::after { content: ''; animation: dots 1.2s steps(3, end) infinite; }
+  @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+
+  .error-card { margin: 0 20px; background: rgba(255,71,71,0.1); border: 1px solid rgba(255,71,71,0.3); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--danger); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* Config banner */
+  .config-banner {
+    margin: 12px 20px; background: rgba(232,255,71,0.08); border: 1px solid rgba(232,255,71,0.3);
+    border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--accent);
+    font-family: 'Space Mono', monospace; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Stock<span>Scan</span></div>
+  <div class="order-badge" onclick="switchTab('orders')">Orders: <span id="order-count">0</span></div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('scan')">Scan</div>
+  <div class="tab" onclick="switchTab('inventory')">Inventory</div>
+  <div class="tab" onclick="switchTab('orders')">Order List</div>
+</div>
+
+<!-- SCAN VIEW -->
+<div class="view active" id="view-scan">
+
+  <!-- Replace YOUR_APPS_SCRIPT_URL_HERE with your deployed Apps Script URL -->
+  <div class="config-banner" id="config-banner" style="display:none">
+    ⚠ API not configured. Open the HTML file and set your Apps Script URL.
+  </div>
+
+  <div class="scan-area">
+    <div id="scanner-container">
+      <div class="scan-placeholder" id="scan-placeholder">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/>
+        </svg>
+        <span style="font-size:13px">Camera off</span>
+      </div>
+    </div>
+    <div class="scan-overlay" id="scan-overlay" style="display:none">
+      <div class="scan-frame">
+        <div class="corner-br"></div><div class="corner-bl"></div>
+        <div class="scan-line"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scan-controls">
+    <button class="btn btn-primary" id="btn-scan" onclick="toggleScanner()">Start Camera</button>
+    <button class="btn btn-secondary" onclick="resetScan()">Clear</button>
+  </div>
+
+  <div class="manual-input">
+    <input type="text" id="manual-upc" placeholder="Enter UPC manually..." inputmode="numeric" />
+    <button onclick="lookupManual()">Look up</button>
+  </div>
+
+  <div id="loading" class="loading-state" style="display:none">
+    <span class="loading-dots">Looking up product</span>
+  </div>
+
+  <div id="error-msg" class="error-card" style="display:none"></div>
+
+  <div class="product-card" id="product-card">
+    <div class="product-upc" id="p-upc"></div>
+    <div class="product-name" id="p-name"></div>
+    <div class="product-brand" id="p-brand"></div>
+
+    <div class="product-meta">
+      <div class="meta-box">
+        <div class="meta-label">In Stock</div>
+        <div class="stock-edit">
+          <button onclick="adjustStock(-1)">−</button>
+          <input type="number" id="p-stock" value="0" min="0" onchange="saveProductData()" />
+          <button onclick="adjustStock(1)">+</button>
+        </div>
+      </div>
+      <div class="meta-box">
+        <div class="meta-label">UPC</div>
+        <div style="font-family:'Space Mono';font-size:11px;word-break:break-all;color:var(--muted);margin-top:4px" id="p-upc-display"></div>
+      </div>
+    </div>
+
+    <div class="vendor-row">
+      <label>Vendor / Supplier</label>
+      <input type="text" id="p-vendor" placeholder="Who do you order this from?" onchange="saveProductData()" />
+      <div class="vendor-saved" id="vendor-saved" style="display:none">✓ Vendor saved from last scan</div>
+    </div>
+
+    <div class="order-section">
+      <div class="order-qty-wrap">
+        <div class="order-qty-label">Order Qty</div>
+        <div class="qty-stepper">
+          <button onclick="adjustQty(-1)">−</button>
+          <input type="number" id="order-qty" value="1" min="1" />
+          <button onclick="adjustQty(1)">+</button>
+        </div>
+      </div>
+      <button class="btn-add-order" onclick="addToOrder()">+ Add to Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVENTORY VIEW -->
+<div class="view" id="view-inventory">
+  <div class="view-header">
+    <div class="view-title">Inventory</div>
+    <div class="count-chip" id="inv-count">0 items</div>
+  </div>
+  <div class="item-list" id="inv-list">
+    <div class="empty-state"><div class="empty-icon">📦</div>No items yet.<br>Start scanning to build your inventory.</div>
+  </div>
+</div>
+
+<!-- ORDER LIST VIEW -->
+<div class="view" id="view-orders">
+  <div class="view-header">
+    <div class="view-title">Order List</div>
+    <div class="count-chip" id="orders-count">0 items</div>
+  </div>
+  <div class="item-list" id="order-list">
+    <div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.<br>Scan a product and add it to your order.</div>
+  </div>
+  <div class="export-bar">
+    <div class="export-bar-row">
+      <button class="btn btn-secondary" style="flex:1" onclick="clearOrders()">Clear All</button>
+      <button class="btn btn-primary" style="flex:2" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// CONFIG — Replace with your deployed Apps Script URL
+// ─────────────────────────────────────────────────────────
+const API_URL = 'https://script.google.com/macros/s/AKfycbzGh2QZ-my-kMEOTw87T77xbnC-dqCOCrHLKQiELJ5Z2sG4qyLlKfkdx0zrwf0kr53mkg/exec';
+
+// ─── State ───────────────────────────────────────────────
+let currentProduct = null;
+let scannerRunning = false;
+let lastScanned = '';
+let ordersCache = [];
+
+// Check config on load
+window.addEventListener('load', () => {
+  if (API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+    document.getElementById('config-banner').style.display = 'block';
+  }
+});
+
+// ─── API Helpers ─────────────────────────────────────────
+async function apiGet(params) {
+  const url = API_URL + '?' + new URLSearchParams(params);
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function apiPost(body) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+// ─── Tabs ─────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['scan','inventory','orders'][i] === name);
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  if (name === 'inventory') loadInventory();
+  if (name === 'orders') loadOrders();
+}
+
+// ─── Scanner ──────────────────────────────────────────────
+function toggleScanner() {
+  scannerRunning ? stopScanner() : startScanner();
+}
+
+function startScanner() {
+  document.getElementById('scan-placeholder').style.display = 'none';
+  document.getElementById('scan-overlay').style.display = 'flex';
+  document.getElementById('btn-scan').textContent = 'Stop Camera';
+
+  Quagga.init({
+    inputStream: {
+      name: "Live", type: "LiveStream",
+      target: document.getElementById('scanner-container'),
+      constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+    },
+    decoder: { readers: ["ean_reader","upc_reader","upc_e_reader","code_128_reader"] },
+    locate: true
+  }, (err) => {
+    if (err) {
+      showError("Camera access denied. Use manual entry below.");
+      document.getElementById('scan-placeholder').style.display = 'flex';
+      document.getElementById('scan-overlay').style.display = 'none';
+      document.getElementById('btn-scan').textContent = 'Start Camera';
+      return;
+    }
+    Quagga.start();
+    scannerRunning = true;
+  });
+
+  Quagga.onDetected((result) => {
+    const code = result.codeResult.code;
+    if (code && code !== lastScanned) {
+      lastScanned = code;
+      stopScanner();
+      lookupUPC(code);
+    }
+  });
+}
+
+function stopScanner() {
+  if (scannerRunning) { Quagga.stop(); scannerRunning = false; }
+  document.getElementById('btn-scan').textContent = 'Start Camera';
+  document.getElementById('scan-overlay').style.display = 'none';
+  document.getElementById('scan-placeholder').style.display = 'flex';
+}
+
+// ─── Lookup ───────────────────────────────────────────────
+function lookupManual() {
+  const val = document.getElementById('manual-upc').value.trim();
+  if (val) lookupUPC(val);
+}
+
+async function lookupUPC(upc) {
+  document.getElementById('product-card').classList.remove('visible');
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+
+  try {
+    // Step 1: Check if we already have this product in our sheet
+    let savedProduct = null;
+    if (API_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
+      const sheetData = await apiGet({ action: 'getProduct', upc });
+      if (sheetData.found) savedProduct = sheetData;
+    }
+
+    // Step 2: Look up on Open Food Facts
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${upc}.json`);
+    const data = await res.json();
+    document.getElementById('loading').style.display = 'none';
+
+    let name = 'Product Not Found';
+    let brand = 'Enter details manually';
+
+    if (data.status === 1 && data.product) {
+      name = data.product.product_name || data.product.product_name_en || 'Unknown Product';
+      brand = data.product.brands || 'Unknown Brand';
+    } else {
+      showError('UPC not in Open Food Facts database. You can still save it manually.');
+    }
+
+    // If we had a saved product, override name/brand with saved (more accurate)
+    // but keep Open Food Facts as fallback
+    showProduct({
+      upc,
+      name: savedProduct ? savedProduct.name : name,
+      brand: savedProduct ? savedProduct.brand : brand,
+      vendor: savedProduct ? savedProduct.vendor : '',
+      stock: savedProduct ? savedProduct.stock : 0,
+      isKnown: !!savedProduct
+    });
+
+  } catch (e) {
+    document.getElementById('loading').style.display = 'none';
+    showError('Network error. Check your connection.');
+  }
+}
+
+function showProduct(product) {
+  currentProduct = product;
+  document.getElementById('p-upc').textContent = 'UPC: ' + product.upc;
+  document.getElementById('p-upc-display').textContent = product.upc;
+  document.getElementById('p-name').textContent = product.name;
+  document.getElementById('p-brand').textContent = product.brand;
+  document.getElementById('p-stock').value = product.stock || 0;
+  document.getElementById('p-vendor').value = product.vendor || '';
+  document.getElementById('order-qty').value = 1;
+
+  const vendorSaved = document.getElementById('vendor-saved');
+  if (product.isKnown && product.vendor) {
+    vendorSaved.style.display = 'block';
+  } else {
+    vendorSaved.style.display = 'none';
+  }
+
+  document.getElementById('product-card').classList.add('visible');
+}
+
+// ─── Save product to sheet ────────────────────────────────
+async function saveProductData() {
+  if (!currentProduct || API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
+  const stock = parseInt(document.getElementById('p-stock').value) || 0;
+  const vendor = document.getElementById('p-vendor').value.trim();
+
+  currentProduct = { ...currentProduct, stock, vendor };
+
+  await apiPost({
+    action: 'saveProduct',
+    upc: currentProduct.upc,
+    name: currentProduct.name,
+    brand: currentProduct.brand,
+    vendor,
+    stock
+  });
+}
+
+// ─── Stock ────────────────────────────────────────────────
+function adjustStock(delta) {
+  const input = document.getElementById('p-stock');
+  input.value = Math.max(0, parseInt(input.value || 0) + delta);
+  saveProductData();
+}
+
+// ─── Order ────────────────────────────────────────────────
+function adjustQty(delta) {
+  const input = document.getElementById('order-qty');
+  input.value = Math.max(1, parseInt(input.value || 1) + delta);
+}
+
+async function addToOrder() {
+  if (!currentProduct) return;
+  await saveProductData();
+
+  const qty = parseInt(document.getElementById('order-qty').value) || 1;
+  const vendor = document.getElementById('p-vendor').value.trim();
+
+  if (API_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
+    const btn = document.querySelector('.btn-add-order');
+    btn.textContent = 'Adding...';
+    btn.disabled = true;
+
+    await apiPost({
+      action: 'addOrder',
+      upc: currentProduct.upc,
+      name: currentProduct.name,
+      brand: currentProduct.brand,
+      vendor,
+      qty
+    });
+
+    btn.textContent = '+ Add to Order';
+    btn.disabled = false;
+  }
+
+  // Update local order count
+  ordersCache.push({ ...currentProduct, qty, vendor });
+  document.getElementById('order-count').textContent = ordersCache.length;
+  showToast(`Added ${qty}× ${currentProduct.name} to order`);
+}
+
+// ─── Load Inventory ───────────────────────────────────────
+async function loadInventory() {
+  const list = document.getElementById('inv-list');
+  list.innerHTML = `<div class="loading-state"><span class="loading-dots">Loading inventory</span></div>`;
+
+  if (API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚙️</div>Set your API URL to load inventory.</div>`;
+    return;
+  }
+
+  try {
+    const data = await apiGet({ action: 'getInventory' });
+    const items = data.items || [];
+    document.getElementById('inv-count').textContent = items.length + ' items';
+
+    if (!items.length) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div>`;
+      return;
+    }
+
+    list.innerHTML = items.sort((a,b) => a.stock - b.stock).map(item => {
+      const low = item.stock <= 5;
+      const color = low ? 'var(--danger)' : 'var(--accent2)';
+      return `<div class="inv-item">
+        <div class="inv-dot" style="background:${color}"></div>
+        <div class="inv-info">
+          <div class="inv-name">${item.name}</div>
+          <div class="inv-brand">${item.brand}${item.vendor ? ' · ' + item.vendor : ''}</div>
+        </div>
+        <div class="inv-stock" style="color:${color}">${item.stock}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load. Check your connection.</div>`;
+  }
+}
+
+// ─── Load Orders ──────────────────────────────────────────
+async function loadOrders() {
+  const list = document.getElementById('order-list');
+  list.innerHTML = `<div class="loading-state"><span class="loading-dots">Loading orders</span></div>`;
+
+  if (API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚙️</div>Set your API URL to load orders.</div>`;
+    return;
+  }
+
+  try {
+    const data = await apiGet({ action: 'getOrders' });
+    const orders = data.orders || [];
+    ordersCache = orders;
+    document.getElementById('orders-count').textContent = orders.length + ' items';
+    document.getElementById('order-count').textContent = orders.length;
+
+    if (!orders.length) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div>`;
+      return;
+    }
+
+    list.innerHTML = orders.map((o, i) => `
+      <div class="order-item">
+        <div class="order-info">
+          <div class="order-name">${o.name}</div>
+          <div class="order-supplier">${o.vendor || 'No vendor set'} · ${o.brand}</div>
+        </div>
+        <div class="order-qty-badge">×${o.qty}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load.</div>`;
+  }
+}
+
+// ─── Clear Orders ─────────────────────────────────────────
+async function clearOrders() {
+  if (!confirm('Clear all orders from the sheet?')) return;
+  await apiPost({ action: 'clearOrders' });
+  ordersCache = [];
+  document.getElementById('order-count').textContent = '0';
+  loadOrders();
+  showToast('Orders cleared');
+}
+
+// ─── Export CSV ───────────────────────────────────────────
+function exportCSV() {
+  if (!ordersCache.length) { showToast('No orders to export'); return; }
+  const rows = [['Date','Product Name','Brand','UPC','Order Qty','Vendor']];
+  ordersCache.forEach(o => rows.push([o.date||'', o.name, o.brand, o.upc, o.qty, o.vendor||'']));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `orders-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSV exported!');
+}
+
+// ─── Helpers ──────────────────────────────────────────────
+function resetScan() {
+  stopScanner();
+  currentProduct = null;
+  lastScanned = '';
+  document.getElementById('product-card').classList.remove('visible');
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('manual-upc').value = '';
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+let toastTimer;
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
