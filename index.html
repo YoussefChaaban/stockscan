@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GreenVine Scan</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -24,6 +24,8 @@
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  button, input, textarea, select { touch-action: manipulation; }
 
   body {
     background: var(--bg);
@@ -81,6 +83,8 @@
     font-family: 'DM Sans', sans-serif; font-size: 22px; font-weight: 600;
     cursor: pointer; transition: all 0.1s; display: flex;
     align-items: center; justify-content: center;
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+    touch-action: manipulation;
   }
 
   .pin-key:active { background: rgba(255,255,255,0.25); transform: scale(0.95); }
@@ -604,7 +608,10 @@ function pinPress(digit) {
   if (pinBuffer.length >= 4) return;
   pinBuffer += digit;
   updatePinDots();
-  if (pinBuffer.length === 4) setTimeout(checkPin, 200);
+  document.getElementById('pin-error').textContent = '';
+  if (pinBuffer.length === 4) {
+    setTimeout(checkPin, 150);
+  }
 }
 
 function pinDelete() {
