@@ -79,7 +79,6 @@
   .view { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
   .view.active { display: flex; }
 
-  /* SCAN */
   .scan-area {
     position: relative;
     background: #000;
@@ -125,7 +124,6 @@
   .btn:active { transform: scale(0.97); }
   .btn-primary { background: var(--accent); color: #000; }
   .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-  .btn-danger { background: var(--danger); color: #fff; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .manual-input { padding: 0 20px 16px; display: flex; gap: 10px; }
@@ -142,7 +140,6 @@
     font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
   }
 
-  /* Product card */
   .product-card {
     margin: 0 20px 16px; background: var(--surface); border: 1px solid var(--border);
     border-radius: 14px; padding: 18px; display: none;
@@ -157,7 +154,6 @@
   .product-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
   .meta-box { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
   .meta-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; font-family: 'Space Mono', monospace; }
-  .meta-value { font-size: 20px; font-weight: 800; color: var(--text); }
 
   .stock-edit { display: flex; align-items: center; gap: 8px; }
   .stock-edit input {
@@ -172,7 +168,6 @@
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
 
-  /* Vendor input */
   .vendor-row { margin-bottom: 14px; }
   .vendor-row label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-family: 'Space Mono', monospace; display: block; margin-bottom: 6px; }
   .vendor-row input {
@@ -184,7 +179,6 @@
   .vendor-row input::placeholder { color: var(--muted); }
   .vendor-saved { font-size: 11px; color: var(--accent2); margin-top: 4px; font-family: 'Space Mono', monospace; }
 
-  /* Order section */
   .order-section {
     display: flex; gap: 10px; align-items: flex-end;
     padding-top: 14px; border-top: 1px solid var(--border); margin-top: 4px;
@@ -208,8 +202,8 @@
     font-weight: 700; cursor: pointer; white-space: nowrap;
   }
   .btn-add-order:active { transform: scale(0.95); }
+  .btn-add-order:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* Toast */
   .toast {
     position: fixed; bottom: 24px; left: 50%;
     transform: translateX(-50%) translateY(80px);
@@ -221,7 +215,6 @@
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.error { background: var(--danger); color: #fff; }
 
-  /* Inventory & Orders */
   .view-header { padding: 16px 20px 8px; display: flex; align-items: center; justify-content: space-between; }
   .view-title { font-size: 20px; font-weight: 800; }
   .count-chip { font-family: 'Space Mono', monospace; font-size: 11px; background: var(--surface2); padding: 4px 10px; border-radius: 20px; color: var(--muted); }
@@ -240,7 +233,6 @@
   .order-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .order-supplier { font-size: 11px; color: var(--accent2); margin-top: 2px; }
   .order-qty-badge { background: var(--accent); color: #000; font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
-  .order-remove { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); width: 28px; height: 28px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
   .export-bar { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface); }
   .export-bar-row { display: flex; gap: 10px; }
@@ -249,17 +241,10 @@
   .loading-dots::after { content: ''; animation: dots 1.2s steps(3, end) infinite; }
   @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
 
-  .error-card { margin: 0 20px; background: rgba(255,71,71,0.1); border: 1px solid rgba(255,71,71,0.3); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--danger); }
+  .error-card { margin: 0 20px 12px; background: rgba(255,71,71,0.1); border: 1px solid rgba(255,71,71,0.3); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--danger); }
 
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
   .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
-
-  /* Config banner */
-  .config-banner {
-    margin: 12px 20px; background: rgba(232,255,71,0.08); border: 1px solid rgba(232,255,71,0.3);
-    border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--accent);
-    font-family: 'Space Mono', monospace; line-height: 1.6;
-  }
 </style>
 </head>
 <body>
@@ -277,12 +262,6 @@
 
 <!-- SCAN VIEW -->
 <div class="view active" id="view-scan">
-
-  <!-- Replace YOUR_APPS_SCRIPT_URL_HERE with your deployed Apps Script URL -->
-  <div class="config-banner" id="config-banner" style="display:none">
-    ⚠ API not configured. Open the HTML file and set your Apps Script URL.
-  </div>
-
   <div class="scan-area">
     <div id="scanner-container">
       <div class="scan-placeholder" id="scan-placeholder">
@@ -353,7 +332,7 @@
           <button onclick="adjustQty(1)">+</button>
         </div>
       </div>
-      <button class="btn-add-order" onclick="addToOrder()">+ Add to Order</button>
+      <button class="btn-add-order" id="btn-add-order" onclick="addToOrder()">+ Add to Order</button>
     </div>
   </div>
 </div>
@@ -390,7 +369,7 @@
 
 <script>
 // ─────────────────────────────────────────────────────────
-// CONFIG — Replace with your deployed Apps Script URL
+// CONFIG
 // ─────────────────────────────────────────────────────────
 const API_URL = 'https://script.google.com/macros/s/AKfycbzGh2QZ-my-kMEOTw87T77xbnC-dqCOCrHLKQiELJ5Z2sG4qyLlKfkdx0zrwf0kr53mkg/exec';
 
@@ -400,27 +379,17 @@ let scannerRunning = false;
 let lastScanned = '';
 let ordersCache = [];
 
-// Check config on load
-window.addEventListener('load', () => {
-  if (API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
-    document.getElementById('config-banner').style.display = 'block';
+// ─── API — ALL calls use GET to avoid CORS issues ────────
+async function api(params) {
+  try {
+    const url = API_URL + '?' + new URLSearchParams(params);
+    const res = await fetch(url, { method: 'GET' });
+    const text = await res.text();
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('API error:', e);
+    return { error: e.message };
   }
-});
-
-// ─── API Helpers ─────────────────────────────────────────
-async function apiGet(params) {
-  const url = API_URL + '?' + new URLSearchParams(params);
-  const res = await fetch(url);
-  return res.json();
-}
-
-async function apiPost(body) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return res.json();
 }
 
 // ─── Tabs ─────────────────────────────────────────────────
@@ -493,14 +462,11 @@ async function lookupUPC(upc) {
   document.getElementById('loading').style.display = 'block';
 
   try {
-    // Step 1: Check if we already have this product in our sheet
-    let savedProduct = null;
-    if (API_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
-      const sheetData = await apiGet({ action: 'getProduct', upc });
-      if (sheetData.found) savedProduct = sheetData;
-    }
+    // Check our sheet first
+    const sheetData = await api({ action: 'getProduct', upc });
+    const savedProduct = sheetData.found ? sheetData : null;
 
-    // Step 2: Look up on Open Food Facts
+    // Look up Open Food Facts
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${upc}.json`);
     const data = await res.json();
     document.getElementById('loading').style.display = 'none';
@@ -512,17 +478,15 @@ async function lookupUPC(upc) {
       name = data.product.product_name || data.product.product_name_en || 'Unknown Product';
       brand = data.product.brands || 'Unknown Brand';
     } else {
-      showError('UPC not in Open Food Facts database. You can still save it manually.');
+      showError('UPC not in Open Food Facts. You can still save it manually.');
     }
 
-    // If we had a saved product, override name/brand with saved (more accurate)
-    // but keep Open Food Facts as fallback
     showProduct({
       upc,
-      name: savedProduct ? savedProduct.name : name,
-      brand: savedProduct ? savedProduct.brand : brand,
-      vendor: savedProduct ? savedProduct.vendor : '',
-      stock: savedProduct ? savedProduct.stock : 0,
+      name:    savedProduct ? savedProduct.name   : name,
+      brand:   savedProduct ? savedProduct.brand  : brand,
+      vendor:  savedProduct ? savedProduct.vendor : '',
+      stock:   savedProduct ? savedProduct.stock  : 0,
       isKnown: !!savedProduct
     });
 
@@ -543,27 +507,22 @@ function showProduct(product) {
   document.getElementById('order-qty').value = 1;
 
   const vendorSaved = document.getElementById('vendor-saved');
-  if (product.isKnown && product.vendor) {
-    vendorSaved.style.display = 'block';
-  } else {
-    vendorSaved.style.display = 'none';
-  }
+  vendorSaved.style.display = (product.isKnown && product.vendor) ? 'block' : 'none';
 
   document.getElementById('product-card').classList.add('visible');
 }
 
-// ─── Save product to sheet ────────────────────────────────
+// ─── Save product ─────────────────────────────────────────
 async function saveProductData() {
-  if (!currentProduct || API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
-  const stock = parseInt(document.getElementById('p-stock').value) || 0;
+  if (!currentProduct) return;
+  const stock  = parseInt(document.getElementById('p-stock').value) || 0;
   const vendor = document.getElementById('p-vendor').value.trim();
-
   currentProduct = { ...currentProduct, stock, vendor };
 
-  await apiPost({
+  await api({
     action: 'saveProduct',
-    upc: currentProduct.upc,
-    name: currentProduct.name,
+    upc:   currentProduct.upc,
+    name:  currentProduct.name,
     brand: currentProduct.brand,
     vendor,
     stock
@@ -585,30 +544,33 @@ function adjustQty(delta) {
 
 async function addToOrder() {
   if (!currentProduct) return;
+
+  const btn = document.getElementById('btn-add-order');
+  btn.textContent = 'Adding...';
+  btn.disabled = true;
+
   await saveProductData();
 
-  const qty = parseInt(document.getElementById('order-qty').value) || 1;
+  const qty    = parseInt(document.getElementById('order-qty').value) || 1;
   const vendor = document.getElementById('p-vendor').value.trim();
 
-  if (API_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
-    const btn = document.querySelector('.btn-add-order');
-    btn.textContent = 'Adding...';
-    btn.disabled = true;
+  const result = await api({
+    action: 'addOrder',
+    upc:   currentProduct.upc,
+    name:  currentProduct.name,
+    brand: currentProduct.brand,
+    vendor,
+    qty
+  });
 
-    await apiPost({
-      action: 'addOrder',
-      upc: currentProduct.upc,
-      name: currentProduct.name,
-      brand: currentProduct.brand,
-      vendor,
-      qty
-    });
+  btn.textContent = '+ Add to Order';
+  btn.disabled = false;
 
-    btn.textContent = '+ Add to Order';
-    btn.disabled = false;
+  if (result.error) {
+    showToast('Error saving order', true);
+    return;
   }
 
-  // Update local order count
   ordersCache.push({ ...currentProduct, qty, vendor });
   document.getElementById('order-count').textContent = ordersCache.length;
   showToast(`Added ${qty}× ${currentProduct.name} to order`);
@@ -619,36 +581,27 @@ async function loadInventory() {
   const list = document.getElementById('inv-list');
   list.innerHTML = `<div class="loading-state"><span class="loading-dots">Loading inventory</span></div>`;
 
-  if (API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚙️</div>Set your API URL to load inventory.</div>`;
+  const data = await api({ action: 'getInventory' });
+  const items = data.items || [];
+  document.getElementById('inv-count').textContent = items.length + ' items';
+
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div>`;
     return;
   }
 
-  try {
-    const data = await apiGet({ action: 'getInventory' });
-    const items = data.items || [];
-    document.getElementById('inv-count').textContent = items.length + ' items';
-
-    if (!items.length) {
-      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div>`;
-      return;
-    }
-
-    list.innerHTML = items.sort((a,b) => a.stock - b.stock).map(item => {
-      const low = item.stock <= 5;
-      const color = low ? 'var(--danger)' : 'var(--accent2)';
-      return `<div class="inv-item">
-        <div class="inv-dot" style="background:${color}"></div>
-        <div class="inv-info">
-          <div class="inv-name">${item.name}</div>
-          <div class="inv-brand">${item.brand}${item.vendor ? ' · ' + item.vendor : ''}</div>
-        </div>
-        <div class="inv-stock" style="color:${color}">${item.stock}</div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load. Check your connection.</div>`;
-  }
+  list.innerHTML = items.sort((a,b) => a.stock - b.stock).map(item => {
+    const low = Number(item.stock) <= 5;
+    const color = low ? 'var(--danger)' : 'var(--accent2)';
+    return `<div class="inv-item">
+      <div class="inv-dot" style="background:${color}"></div>
+      <div class="inv-info">
+        <div class="inv-name">${item.name}</div>
+        <div class="inv-brand">${item.brand}${item.vendor ? ' · ' + item.vendor : ''}</div>
+      </div>
+      <div class="inv-stock" style="color:${color}">${item.stock}</div>
+    </div>`;
+  }).join('');
 }
 
 // ─── Load Orders ──────────────────────────────────────────
@@ -656,41 +609,32 @@ async function loadOrders() {
   const list = document.getElementById('order-list');
   list.innerHTML = `<div class="loading-state"><span class="loading-dots">Loading orders</span></div>`;
 
-  if (API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚙️</div>Set your API URL to load orders.</div>`;
+  const data = await api({ action: 'getOrders' });
+  const orders = data.orders || [];
+  ordersCache = orders;
+  document.getElementById('orders-count').textContent = orders.length + ' items';
+  document.getElementById('order-count').textContent = orders.length;
+
+  if (!orders.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div>`;
     return;
   }
 
-  try {
-    const data = await apiGet({ action: 'getOrders' });
-    const orders = data.orders || [];
-    ordersCache = orders;
-    document.getElementById('orders-count').textContent = orders.length + ' items';
-    document.getElementById('order-count').textContent = orders.length;
-
-    if (!orders.length) {
-      list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div>`;
-      return;
-    }
-
-    list.innerHTML = orders.map((o, i) => `
-      <div class="order-item">
-        <div class="order-info">
-          <div class="order-name">${o.name}</div>
-          <div class="order-supplier">${o.vendor || 'No vendor set'} · ${o.brand}</div>
-        </div>
-        <div class="order-qty-badge">×${o.qty}</div>
+  list.innerHTML = orders.map(o => `
+    <div class="order-item">
+      <div class="order-info">
+        <div class="order-name">${o.name}</div>
+        <div class="order-supplier">${o.vendor || 'No vendor set'} · ${o.brand}</div>
       </div>
-    `).join('');
-  } catch (e) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load.</div>`;
-  }
+      <div class="order-qty-badge">×${o.qty}</div>
+    </div>
+  `).join('');
 }
 
 // ─── Clear Orders ─────────────────────────────────────────
 async function clearOrders() {
   if (!confirm('Clear all orders from the sheet?')) return;
-  await apiPost({ action: 'clearOrders' });
+  await api({ action: 'clearOrders' });
   ordersCache = [];
   document.getElementById('order-count').textContent = '0';
   loadOrders();
