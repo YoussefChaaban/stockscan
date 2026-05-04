@@ -730,6 +730,16 @@ async function lookupUPC(upc) {
       foundInDB = true;
     }
 
+    // If not found in Open Food Facts, check the Products catalog tab
+    if (!foundInDB) {
+      const catalogData = await api({ action: 'lookupProduct', upc });
+      if (catalogData.found) {
+        name      = catalogData.name  || '';
+        brand     = catalogData.brand || '';
+        foundInDB = true;
+      }
+    }
+
     showProduct({
       upc,
       name:      saved ? saved.name   : name,
