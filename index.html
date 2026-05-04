@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GreenVine Scan</title>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -459,7 +459,6 @@
           </svg>
           <span style="font-size:13px;color:#555">Camera off</span>
         </div>
-        <video id="scanner-video" style="width:100%;height:100%;object-fit:cover;display:none;"></video>
       </div>
       <div class="scan-overlay" id="scan-overlay" style="display:none">
         <div class="scan-frame">
@@ -652,54 +651,56 @@ function switchTab(name) {
 }
 
 // ─── Scanner ──────────────────────────────────────────────
-let codeReader = null;
-
 function toggleScanner() { scannerRunning ? stopScanner() : startScanner(); }
 
-async function startScanner() {
+function startScanner() {
   document.getElementById('scan-placeholder').style.display = 'none';
-  document.getElementById('scanner-video').style.display = 'block';
   document.getElementById('scan-overlay').style.display = 'flex';
   document.getElementById('btn-scan').textContent = '⏹ Stop Camera';
 
-  try {
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
-    const backCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear') || d.label.toLowerCase().includes('environment')) || devices[devices.length - 1];
-    const deviceId = backCamera ? backCamera.deviceId : undefined;
-
+  Quagga.init({
+    inputStream: {
+      name: "Live", type: "LiveStream",
+      target: document.getElementById('scanner-container'),
+      constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+    },
+    decoder: { readers: ["ean_reader","upc_reader","upc_e_reader","code_128_reader"], multiple: false },
+    locate: true,
+    numOfWorkers: 2,
+    frequency: 5
+  }, (err) => {
+    if (err) { showError("Camera access denied. Use manual entry."); stopScanner(); return; }
+    Quagga.start();
     scannerRunning = true;
-    scanCounts = {};
+  });
 
-    codeReader.decodeFromVideoDevice(deviceId, 'scanner-video', (result, err) => {
-      if (result) {
-        const code = result.getText();
-        if (!code || code === lastScanned) return;
+  Quagga.onDetected((result) => {
+    const code = result.codeResult.code;
+    if (!code || code === lastScanned) return;
 
-        scanCounts[code] = (scanCounts[code] || 0) + 1;
-        if (scanCounts[code] >= 2) {
-          lastScanned = code;
-          scanCounts  = {};
-          stopScanner();
-          lookupUPC(code);
-        }
-      }
-    });
-  } catch (e) {
-    console.error('Scanner error:', e);
-    showError('Camera error: ' + e.message + '. Use manual entry below.');
-    stopScanner();
-  }
+    // Confidence check
+    const errors = result.codeResult.decodedCodes.filter(c => c.error !== undefined);
+    if (errors.length > 0) {
+      const avgError = errors.reduce((s, c) => s + c.error, 0) / errors.length;
+      if (avgError > 0.2) return; // skip low confidence reads
+    }
+
+    scanCounts[code] = (scanCounts[code] || 0) + 1;
+    if (scanCounts[code] >= 3) {
+      lastScanned = code;
+      scanCounts  = {};
+      stopScanner();
+      lookupUPC(code);
+    }
+  });
 }
 
 function stopScanner() {
-  if (codeReader) { codeReader.reset(); codeReader = null; }
-  scannerRunning = false;
+  if (scannerRunning) { Quagga.stop(); scannerRunning = false; }
   scanCounts = {};
   document.getElementById('btn-scan').textContent = '📷 Start Camera';
   document.getElementById('scan-overlay').style.display = 'none';
   document.getElementById('scan-placeholder').style.display = 'flex';
-  document.getElementById('scanner-video').style.display = 'none';
 }
 
 // ─── Lookup ───────────────────────────────────────────────
