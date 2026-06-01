@@ -760,9 +760,10 @@ function showProduct(product) {
   // Image
   const wrap = document.getElementById('product-image-wrap');
   if (product.image) {
-    wrap.innerHTML = `<img src="${product.image}" alt="Product" onerror="this.parentNode.innerHTML='<div class=product-image-placeholder><span style=font-size:32px>📦</span><span style=font-size:11px>No image</span></div>'" />`;
+    wrap.style.display = 'flex';
+    wrap.innerHTML = `<img src="${product.image}" alt="Product" onerror="this.parentNode.style.display='none'" />`;
   } else {
-    wrap.innerHTML = `<div class="product-image-placeholder"><span style="font-size:32px">📦</span><span style="font-size:11px">No image</span></div>`;
+    wrap.style.display = 'none';
   }
 
   document.getElementById('p-upc').textContent          = 'UPC: ' + product.upc;
