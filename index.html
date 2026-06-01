@@ -726,26 +726,24 @@ async function lookupUPC(upc) {
   document.getElementById('loading').style.display = 'block';
 
   try {
-    // Step 1: Check Products catalog for name, brand, vendor
-    const catalogData = await api({ action: 'lookupProduct', upc });
-
-    // Step 2: Check Inventory for stock and notes
-    const inventoryData = await api({ action: 'getProduct', upc });
+    // Run both calls in parallel
+    const [catalogData, inventoryData] = await Promise.all([
+      api({ action: 'lookupProduct', upc }),
+      api({ action: 'getProduct', upc })
+    ]);
 
     document.getElementById('loading').style.display = 'none';
 
-    const foundInDB = catalogData.found;
-
     showProduct({
       upc,
-      name:      catalogData.found ? (catalogData.name  || '') : '',
-      brand:     catalogData.found ? (catalogData.brand || '') : '',
+      name:      catalogData.found ? (catalogData.name   || '') : '',
+      brand:     catalogData.found ? (catalogData.brand  || '') : '',
       vendor:    catalogData.found ? (catalogData.vendor || '') : '',
       stock:     inventoryData.found ? inventoryData.stock : 0,
       notes:     inventoryData.found ? (inventoryData.notes || '') : '',
       image:     '',
       isKnown:   inventoryData.found,
-      foundInDB
+      foundInDB: catalogData.found || inventoryData.found
     });
 
   } catch (e) {
