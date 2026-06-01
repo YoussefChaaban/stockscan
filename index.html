@@ -585,7 +585,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbxnjL5uwDpd8Pg0-FQXGHEFFUMJQWO-QaXTOaEyul7a5mc2iy8OgVI6n9X9qUTGIfFbQg/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzGh2QZ-my-kMEOTw87T77xbnC-dqCOCrHLKQiELJ5Z2sG4qyLlKfkdx0zrwf0kr53mkg/exec';
 
 let currentProduct = null;
 let scannerRunning = false;
@@ -734,9 +734,20 @@ async function lookupUPC(upc) {
     if (!foundInDB) {
       const catalogData = await api({ action: 'lookupProduct', upc });
       if (catalogData.found) {
-        name      = catalogData.name  || '';
-        brand     = catalogData.brand || '';
+        name      = catalogData.name   || '';
+        brand     = catalogData.brand  || '';
         foundInDB = true;
+        if (!saved && catalogData.vendor) {
+          saved = { ...catalogData, stock: 0, notes: '' };
+        }
+      }
+    }
+
+    // Always check Products catalog for vendor, even if Open Food Facts found the product
+    if (foundInDB && !saved) {
+      const catalogData = await api({ action: 'lookupProduct', upc });
+      if (catalogData.found && catalogData.vendor) {
+        saved = { ...catalogData, stock: 0, notes: '' };
       }
     }
 
