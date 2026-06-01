@@ -628,14 +628,25 @@ function updatePinDots() {
 }
 
 async function checkPin() {
-  const result = await api({ action: 'verifyPin', pin: pinBuffer });
-  if (result.success) {
-    currentStaff = result.name;
-    document.getElementById('pin-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    document.getElementById('staff-chip').textContent = '👤 ' + currentStaff;
-  } else {
-    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-staff-name').textContent = 'Checking...';
+  
+  try {
+    const result = await api({ action: 'verifyPin', pin: pinBuffer });
+    if (result.success) {
+      currentStaff = result.name;
+      document.getElementById('pin-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('staff-chip').textContent = '👤 ' + currentStaff;
+    } else {
+      document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+      document.getElementById('pin-staff-name').textContent = '';
+      pinBuffer = '';
+      updatePinDots();
+    }
+  } catch (e) {
+    document.getElementById('pin-error').textContent = 'Connection error. Try again.';
+    document.getElementById('pin-staff-name').textContent = '';
     pinBuffer = '';
     updatePinDots();
   }
