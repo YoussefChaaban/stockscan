@@ -730,32 +730,22 @@ async function lookupUPC(upc) {
       foundInDB = true;
     }
 
-    // If not found in Open Food Facts, check the Products catalog tab
-    if (!foundInDB) {
-      const catalogData = await api({ action: 'lookupProduct', upc });
-      if (catalogData.found) {
-        name      = catalogData.name   || '';
-        brand     = catalogData.brand  || '';
-        foundInDB = true;
-        if (!saved && catalogData.vendor) {
-          saved = { ...catalogData, stock: 0, notes: '' };
-        }
-      }
-    }
+    // Always check Products catalog for vendor
+    const catalogData = await api({ action: 'lookupProduct', upc });
+    const catalogVendor = (catalogData.found && catalogData.vendor) ? catalogData.vendor : '';
 
-    // Always check Products catalog for vendor, even if Open Food Facts found the product
-    if (foundInDB && !saved) {
-      const catalogData = await api({ action: 'lookupProduct', upc });
-      if (catalogData.found && catalogData.vendor) {
-        saved = { ...catalogData, stock: 0, notes: '' };
-      }
+    // If not found in Open Food Facts, also use catalog for name/brand
+    if (!foundInDB && catalogData.found) {
+      name      = catalogData.name  || '';
+      brand     = catalogData.brand || '';
+      foundInDB = true;
     }
 
     showProduct({
       upc,
       name:      saved ? saved.name   : name,
       brand:     saved ? saved.brand  : brand,
-      vendor:    saved ? saved.vendor : '',
+      vendor:    saved ? (saved.vendor || catalogVendor) : catalogVendor,
       stock:     saved ? saved.stock  : 0,
       notes:     saved ? saved.notes  : '',
       image,
