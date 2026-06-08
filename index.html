@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GreenVine Scan</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -662,13 +663,61 @@ function switchTab(name) {
 }
 
 // ─── Scanner ──────────────────────────────────────────────
+let zxingReader = null;
+
 function toggleScanner() { scannerRunning ? stopScanner() : startScanner(); }
 
-function startScanner() {
+async function startScanner() {
   document.getElementById('scan-placeholder').style.display = 'none';
   document.getElementById('scan-overlay').style.display = 'flex';
   document.getElementById('btn-scan').textContent = '⏹ Stop Camera';
 
+  // Try ZXing first (better for mobile and shelf labels)
+  if (typeof ZXing !== 'undefined') {
+    try {
+      zxingReader = new ZXing.BrowserMultiFormatReader();
+      const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+      const backCamera = devices.find(d =>
+        d.label.toLowerCase().includes('back') ||
+        d.label.toLowerCase().includes('rear') ||
+        d.label.toLowerCase().includes('environment')
+      ) || devices[devices.length - 1];
+
+      // Add video element if not present
+      let video = document.getElementById('scanner-video');
+      if (!video) {
+        video = document.createElement('video');
+        video.id = 'scanner-video';
+        video.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        document.getElementById('scanner-container').appendChild(video);
+      }
+      video.style.display = 'block';
+      document.getElementById('scan-placeholder').style.display = 'none';
+
+      scannerRunning = true;
+      scanCounts = {};
+
+      zxingReader.decodeFromVideoDevice(backCamera?.deviceId, 'scanner-video', (result, err) => {
+        if (result) {
+          const code = result.getText();
+          if (!code || code === lastScanned) return;
+          scanCounts[code] = (scanCounts[code] || 0) + 1;
+          if (scanCounts[code] >= 2) {
+            lastScanned = code;
+            scanCounts = {};
+            stopScanner();
+            lookupUPC(code);
+          }
+        }
+      });
+      return;
+    } catch (e) {
+      console.log('ZXing failed, falling back to Quagga:', e);
+      if (zxingReader) { zxingReader.reset(); zxingReader = null; }
+    }
+  }
+
+  // Fallback to Quagga
   Quagga.init({
     inputStream: {
       name: "Live", type: "LiveStream",
@@ -676,9 +725,7 @@ function startScanner() {
       constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
     },
     decoder: { readers: ["ean_reader","upc_reader","upc_e_reader","code_128_reader","code_39_reader","code_93_reader"], multiple: false },
-    locate: true,
-    numOfWorkers: 2,
-    frequency: 5
+    locate: true, numOfWorkers: 2, frequency: 5
   }, (err) => {
     if (err) { showError("Camera access denied. Use manual entry."); stopScanner(); return; }
     Quagga.start();
@@ -688,18 +735,15 @@ function startScanner() {
   Quagga.onDetected((result) => {
     const code = result.codeResult.code;
     if (!code || code === lastScanned) return;
-
-    // Confidence check
     const errors = result.codeResult.decodedCodes.filter(c => c.error !== undefined);
     if (errors.length > 0) {
       const avgError = errors.reduce((s, c) => s + c.error, 0) / errors.length;
-      if (avgError > 0.35) return; // slightly relaxed for shelf labels
+      if (avgError > 0.35) return;
     }
-
     scanCounts[code] = (scanCounts[code] || 0) + 1;
     if (scanCounts[code] >= 3) {
       lastScanned = code;
-      scanCounts  = {};
+      scanCounts = {};
       stopScanner();
       lookupUPC(code);
     }
@@ -707,8 +751,14 @@ function startScanner() {
 }
 
 function stopScanner() {
-  if (scannerRunning) { Quagga.stop(); scannerRunning = false; }
+  if (zxingReader) { zxingReader.reset(); zxingReader = null; }
+  if (scannerRunning && typeof Quagga !== 'undefined') {
+    try { Quagga.stop(); } catch(e) {}
+  }
+  scannerRunning = false;
   scanCounts = {};
+  const video = document.getElementById('scanner-video');
+  if (video) video.style.display = 'none';
   document.getElementById('btn-scan').textContent = '📷 Start Camera';
   document.getElementById('scan-overlay').style.display = 'none';
   document.getElementById('scan-placeholder').style.display = 'flex';
