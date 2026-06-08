@@ -6,6 +6,7 @@
 <title>GreenVine Scan</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -475,6 +476,10 @@
       <button class="btn btn-primary" id="btn-scan" onclick="toggleScanner()">📷 Start Camera</button>
       <button class="btn btn-secondary" onclick="resetScan()">Clear</button>
     </div>
+    <div style="padding: 0 16px 14px; display:flex; gap:10px;">
+      <button class="btn btn-secondary" id="btn-ocr" onclick="toggleOCR()" style="flex:1">🔤 Read Label</button>
+      <button class="btn btn-primary" id="btn-capture" onclick="captureOCR()" style="flex:1;display:none">📸 Capture</button>
+    </div>
 
     <div class="manual-input">
       <input type="text" id="manual-upc" placeholder="Enter UPC manually..." inputmode="numeric" />
@@ -764,6 +769,119 @@ function stopScanner() {
   document.getElementById('scan-placeholder').style.display = 'flex';
 }
 
+// ─── OCR Mode ─────────────────────────────────────────────
+let ocrStream = null;
+let ocrActive = false;
+
+async function toggleOCR() {
+  if (ocrActive) {
+    stopOCR();
+  } else {
+    startOCR();
+  }
+}
+
+async function startOCR() {
+  stopScanner();
+  ocrActive = true;
+  document.getElementById('btn-ocr').textContent = '✕ Cancel';
+  document.getElementById('btn-capture').style.display = 'block';
+  document.getElementById('scan-placeholder').style.display = 'none';
+  document.getElementById('scan-overlay').style.display = 'flex';
+
+  try {
+    ocrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    let video = document.getElementById('scanner-video');
+    if (!video) {
+      video = document.createElement('video');
+      video.id = 'scanner-video';
+      video.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+      document.getElementById('scanner-container').appendChild(video);
+    }
+    video.srcObject = ocrStream;
+    video.style.display = 'block';
+    video.play();
+  } catch (e) {
+    showError('Camera access denied.');
+    stopOCR();
+  }
+}
+
+function stopOCR() {
+  ocrActive = false;
+  if (ocrStream) { ocrStream.getTracks().forEach(t => t.stop()); ocrStream = null; }
+  const video = document.getElementById('scanner-video');
+  if (video) { video.style.display = 'none'; video.srcObject = null; }
+  document.getElementById('btn-ocr').textContent = '🔤 Read Label';
+  document.getElementById('btn-capture').style.display = 'none';
+  document.getElementById('scan-overlay').style.display = 'none';
+  document.getElementById('scan-placeholder').style.display = 'flex';
+}
+
+async function captureOCR() {
+  if (!ocrActive) return;
+  const btn = document.getElementById('btn-capture');
+  btn.textContent = 'Reading...';
+  btn.disabled = true;
+
+  try {
+    const video = document.getElementById('scanner-video');
+    const canvas = document.createElement('canvas');
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('product-card').classList.remove('visible');
+
+    const result = await Tesseract.recognize(canvas, 'eng', {
+      tessedit_char_whitelist: '0123456789',
+    });
+
+    const text = result.data.text.replace(/\s/g, '');
+    // Find all 10-14 digit sequences
+    const matches = text.match(/\d{10,14}/g) || [];
+    // Filter to most likely UPC (12 digits most common)
+    const upcs = [...new Set(matches)];
+
+    document.getElementById('loading').style.display = 'none';
+
+    if (upcs.length === 0) {
+      showError('No UPC found. Try holding the camera closer and steadier.');
+    } else if (upcs.length === 1) {
+      stopOCR();
+      document.getElementById('manual-upc').value = upcs[0];
+      lookupUPC(upcs[0]);
+    } else {
+      // Multiple matches — show picker
+      showUPCPicker(upcs);
+    }
+  } catch (e) {
+    document.getElementById('loading').style.display = 'none';
+    showError('OCR failed. Try again.');
+  }
+
+  btn.textContent = 'Capture';
+  btn.disabled = false;
+}
+
+function showUPCPicker(upcs) {
+  stopOCR();
+  const list = upcs.map(u =>
+    `<button onclick="pickUPC('${u}')" style="width:100%;padding:12px;margin-bottom:8px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;font-family:monospace;font-size:16px;cursor:pointer;">${u}</button>`
+  ).join('');
+  document.getElementById('error-msg').innerHTML = `<div style="font-weight:600;margin-bottom:8px;">Multiple numbers found — pick the UPC:</div>${list}`;
+  document.getElementById('error-msg').style.display = 'block';
+}
+
+function pickUPC(upc) {
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('manual-upc').value = upc;
+  lookupUPC(upc);
+}
+
 // ─── Lookup ───────────────────────────────────────────────
 function lookupManual() {
   const val = document.getElementById('manual-upc').value.trim();
@@ -967,7 +1085,7 @@ function exportCSV() {
 
 // ─── Helpers ──────────────────────────────────────────────
 function resetScan() {
-  stopScanner(); currentProduct = null; lastScanned = '';
+  stopScanner(); stopOCR(); currentProduct = null; lastScanned = '';
   document.getElementById('product-card').classList.remove('visible');
   document.getElementById('error-msg').style.display = 'none';
   document.getElementById('manual-upc').value = '';
