@@ -643,6 +643,8 @@ async function checkPin() {
       document.getElementById('pin-screen').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
       document.getElementById('staff-chip').textContent = '👤 ' + currentStaff;
+      // Auto-focus UPC field for Zebra scanner
+      setTimeout(() => document.getElementById('manual-upc').focus(), 100);
     } else {
       document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
       document.getElementById('pin-staff-name').textContent = '';
@@ -796,6 +798,38 @@ function lookupManual() {
   const val = document.getElementById('manual-upc').value.trim();
   if (val) lookupUPC(val);
 }
+
+// Auto-submit on Enter key in UPC field
+document.addEventListener('DOMContentLoaded', () => {
+  const upcInput = document.getElementById('manual-upc');
+  upcInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = upcInput.value.trim();
+      if (val) lookupUPC(val);
+    }
+  });
+
+  // Also listen for Enter when product card is visible — submit the order
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && currentProduct && document.getElementById('product-card').classList.contains('visible')) {
+      // Only if UPC field is not focused (so we don't double-trigger)
+      if (document.activeElement !== upcInput) {
+        e.preventDefault();
+        addToOrder().then(() => {
+          // After order added, clear and refocus UPC field for next scan
+          setTimeout(() => {
+            document.getElementById('product-card').classList.remove('visible');
+            document.getElementById('error-msg').style.display = 'none';
+            upcInput.value = '';
+            upcInput.focus();
+            lastScanned = '';
+          }, 800);
+        });
+      }
+    }
+  });
+});
 
 async function lookupUPC(upc) {
   document.getElementById('product-card').classList.remove('visible');
