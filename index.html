@@ -675,7 +675,7 @@ function startScanner() {
       target: document.getElementById('scanner-container'),
       constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
     },
-    decoder: { readers: ["ean_reader","upc_reader","upc_e_reader","code_128_reader"], multiple: false },
+    decoder: { readers: ["ean_reader","upc_reader","upc_e_reader","code_128_reader","code_39_reader","code_93_reader"], multiple: false },
     locate: true,
     numOfWorkers: 2,
     frequency: 5
@@ -693,7 +693,7 @@ function startScanner() {
     const errors = result.codeResult.decodedCodes.filter(c => c.error !== undefined);
     if (errors.length > 0) {
       const avgError = errors.reduce((s, c) => s + c.error, 0) / errors.length;
-      if (avgError > 0.2) return; // skip low confidence reads
+      if (avgError > 0.35) return; // slightly relaxed for shelf labels
     }
 
     scanCounts[code] = (scanCounts[code] || 0) + 1;
