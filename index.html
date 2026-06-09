@@ -896,7 +896,7 @@ async function addToOrder() {
   const vendor = document.getElementById('p-vendor').value.trim();
   const brand  = document.getElementById('p-brand').value.trim();
 
-  const result = await api({ action: 'addOrder', upc: currentProduct.upc, name, brand, vendor, qty, staff: currentStaff });
+  const result = await api({ action: 'addOrder', upc: currentProduct.upc, name, brand, vendor, weight: currentProduct.weight || '', qty, staff: currentStaff });
   btn.textContent = '+ Add to Order'; btn.disabled = false;
 
   if (result.error) { showToast('Error saving order', true); return; }
