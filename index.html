@@ -826,12 +826,11 @@ async function lookupUPC(upc) {
     showProduct({
       upc,
       name:      catalogData.found ? (catalogData.name   || '') : '',
-      brand:     catalogData.found ? (catalogData.brand  || '') : '',
+      brand:     '',
       vendor:    catalogData.found ? (catalogData.vendor || '') : '',
       weight:    catalogData.found ? (catalogData.weight || '') : '',
       stock:     inventoryData.found ? inventoryData.stock : 0,
       notes:     inventoryData.found ? (inventoryData.notes || '') : '',
-      image:     '',
       isKnown:   inventoryData.found,
       foundInDB: catalogData.found || inventoryData.found
     });
