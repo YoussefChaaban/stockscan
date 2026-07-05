@@ -809,7 +809,23 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// If a product is currently on screen and hasn't been added yet, commit it
+// to the order (using whatever qty is showing, default 1) before moving on
+// to the newly scanned item. This is what lets staff scan item after item
+// without tapping "Add to Order" each time.
+async function autoCommitPendingItem() {
+  const card = document.getElementById('product-card');
+  if (!currentProduct || !card.classList.contains('visible')) return;
+  const name = document.getElementById('p-name').value.trim();
+  if (!name) return; // nothing meaningful to save (e.g. unknown item left blank) — just drop it
+  await addToOrder();
+}
+
 async function lookupUPC(upc) {
+  if (currentProduct && currentProduct.upc !== upc) {
+    await autoCommitPendingItem();
+  }
+
   document.getElementById('product-card').classList.remove('visible');
   document.getElementById('error-msg').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
@@ -856,8 +872,11 @@ function showProduct(product) {
   document.getElementById('vendor-saved').style.display = (product.isKnown && product.vendor) ? 'block' : 'none';
   document.getElementById('product-card').classList.add('visible');
 
-  // Auto-focus quantity field for Zebra workflow
-  setTimeout(() => document.getElementById('order-qty').focus(), 100);
+  // Clear and refocus the UPC field so the next scan can go straight in —
+  // scanning a different item will auto-commit this one via autoCommitPendingItem().
+  const upcInput = document.getElementById('manual-upc');
+  upcInput.value = '';
+  setTimeout(() => upcInput.focus(), 100);
 }
 
 // ─── Save ─────────────────────────────────────────────────
@@ -903,6 +922,7 @@ async function addToOrder() {
   ordersCache.push({ ...currentProduct, name, brand, qty, vendor, staff: currentStaff });
   document.getElementById('order-count').textContent = ordersCache.length;
   showToast(`Added ${qty}× ${name} to order`);
+  currentProduct = null; // prevent this item from being committed a second time
 }
 
 // ─── Inventory ────────────────────────────────────────────
