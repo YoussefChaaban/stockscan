@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GreenVine Scan</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -145,35 +142,7 @@
   .view { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
   .view.active { display: flex; }
 
-  /* ─── SCAN AREA ──────────────────────────────────────── */
-  .scan-area { position: relative; background: #111; height: 220px; overflow: hidden; }
-  #scanner-container { width: 100%; height: 100%; position: relative; }
-  #scanner-container video { width: 100%; height: 100%; object-fit: cover; }
-  #scanner-container canvas.drawingBuffer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-  .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-  .scan-frame { width: 230px; height: 110px; position: relative; }
-  .scan-frame::before, .scan-frame::after, .scan-frame .c-br, .scan-frame .c-bl {
-    content: ''; position: absolute; width: 22px; height: 22px; border-color: var(--green-pale); border-style: solid;
-  }
-  .scan-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; }
-  .scan-frame::after  { top: 0; right: 0; border-width: 3px 3px 0 0; }
-  .scan-frame .c-br   { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
-  .scan-frame .c-bl   { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
-  .scan-line {
-    position: absolute; left: 8px; right: 8px; height: 2px;
-    background: var(--green-light); box-shadow: 0 0 10px var(--green-light);
-    animation: scanline 2s ease-in-out infinite;
-  }
-  @keyframes scanline { 0%, 100% { top: 8px; } 50% { top: 94px; } }
-  .scan-placeholder {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 10px; color: #666; background: #111;
-  }
-
-  .green-stripe { height: 4px; background: linear-gradient(90deg, var(--green-dark), var(--green-light), var(--green-dark)); }
-
   /* ─── CONTROLS ───────────────────────────────────────── */
-  .scan-controls { padding: 14px 16px; display: flex; gap: 10px; }
   .btn {
     flex: 1; padding: 13px; border: none; border-radius: 8px;
     font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
@@ -206,20 +175,6 @@
   }
   .product-card.visible { display: block; animation: slideUp 0.2s ease; }
   @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-  /* Product image */
-  .product-image-wrap {
-    width: 100%; height: 160px; background: var(--surface2);
-    display: flex; align-items: center; justify-content: center; overflow: hidden;
-    border-bottom: 1px solid var(--border);
-  }
-  .product-image-wrap img {
-    max-height: 100%; max-width: 100%; object-fit: contain; padding: 12px;
-  }
-  .product-image-placeholder {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    color: var(--muted); font-size: 12px;
-  }
 
   .product-card-body { padding: 16px; }
 
@@ -256,8 +211,6 @@
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
   .stock-edit button:hover { background: var(--green-pale); }
-
-  .upc-display { font-size: 11px; color: var(--muted); word-break: break-all; margin-top: 2px; font-family: monospace; }
 
   /* Notes */
   .notes-row { margin-bottom: 14px; }
@@ -453,7 +406,7 @@
   <div class="view active" id="view-scan">
 
     <div class="manual-input" style="padding: 16px 16px 14px;">
-      <input type="text" id="manual-upc" placeholder="Scan or enter UPC..." inputmode="numeric" />
+      <input type="text" id="manual-upc" placeholder="Scan or enter UPC..." inputmode="numeric" autocomplete="off" />
       <button onclick="lookupManual()">Look up</button>
     </div>
 
@@ -467,15 +420,15 @@
       <div class="product-card-body">
         <div class="product-upc" id="p-upc"></div>
         <div class="unknown-hint" id="unknown-hint">⚠ Product not found — fill in details below</div>
-        <input class="product-name-input" id="p-name" type="text" placeholder="Enter product name..." onchange="saveProductData()" />
-        <input class="product-brand-input" id="p-brand" type="text" placeholder="Enter brand..." onchange="saveProductData()" />
+        <input class="product-name-input" id="p-name" type="text" placeholder="Enter product name..." onchange="markDirty()" />
+        <input class="product-brand-input" id="p-brand" type="text" placeholder="Enter brand..." onchange="markDirty()" />
 
         <div class="product-meta">
           <div class="meta-box">
             <div class="meta-label">In Stock</div>
             <div class="stock-edit">
               <button onclick="adjustStock(-1)">−</button>
-              <input type="number" id="p-stock" value="0" min="0" onchange="saveProductData()" />
+              <input type="number" id="p-stock" value="0" min="0" onchange="markDirty()" />
               <button onclick="adjustStock(1)">+</button>
             </div>
           </div>
@@ -487,13 +440,13 @@
 
         <div class="vendor-row">
           <label>Vendor / Supplier</label>
-          <input type="text" id="p-vendor" placeholder="Who do you order this from?" onchange="saveProductData()" />
+          <input type="text" id="p-vendor" placeholder="Who do you order this from?" onchange="markDirty()" />
           <div class="vendor-saved" id="vendor-saved" style="display:none">✓ Vendor saved from last scan</div>
         </div>
 
         <div class="notes-row">
           <label>Notes</label>
-          <textarea id="p-notes" placeholder="e.g. Order every 2 weeks, seasonal item..." onchange="saveProductData()"></textarea>
+          <textarea id="p-notes" placeholder="e.g. Order every 2 weeks, seasonal item..." onchange="markDirty()"></textarea>
         </div>
 
         <div class="order-section">
@@ -505,7 +458,7 @@
               <button onclick="adjustQty(1)">+</button>
             </div>
           </div>
-          <button class="btn-add-order" id="btn-add-order" onclick="addToOrder()">+ Add to Order</button>
+          <button class="btn-add-order" id="btn-add-order" onclick="submitOrder()">+ Add to Order</button>
         </div>
       </div>
     </div>
@@ -515,11 +468,23 @@
   <div class="view" id="view-inventory">
     <div class="view-header">
       <div class="view-title">Inventory</div>
-      <div class="count-chip" id="inv-count">0 items</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="count-chip" id="inv-count">0 items</div>
+        <button onclick="refreshInventory()" title="Refresh from sheet" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--green-mid);padding:2px 4px;">⟳</button>
+      </div>
     </div>
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
       <input type="text" id="inv-search" placeholder="Search products..." oninput="filterInventory()" />
+    </div>
+    <div style="display:flex; gap:8px; padding:0 16px 10px; align-items:center;">
+      <select id="inv-sort" onchange="filterInventory()" style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:8px; padding:8px 10px; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--text);">
+        <option value="stock-asc">Sort: Stock (Low→High)</option>
+        <option value="stock-desc">Sort: Stock (High→Low)</option>
+        <option value="name">Sort: Name (A→Z)</option>
+        <option value="vendor">Sort: Vendor (A→Z)</option>
+      </select>
+      <button id="low-stock-toggle" onclick="toggleLowStockFilter()" style="background:var(--surface2); border:1.5px solid var(--border); border-radius:8px; padding:8px 12px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; color:var(--text); cursor:pointer; white-space:nowrap;">⚠ Low only</button>
     </div>
     <div class="item-list" id="inv-list">
       <div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div>
@@ -554,13 +519,15 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxitPdYJYZZqCzz8_Ncf1g0gchsABE1NssFaezAr7gtZuyx9GU3J3qwest3MwSsyXKoXA/exec';
 
 let currentProduct = null;
-let scannerRunning = false;
-let lastScanned    = '';
 let ordersCache    = [];
 let inventoryCache = [];
 let currentStaff   = '';
 let pinBuffer      = '';
-let scanCounts     = {};
+let productDirty   = false;   // only save product if the user actually edited a field
+let adding         = false;   // guard against double order submission
+let productsCache  = null;    // { [normalizedUPC]: {name, vendor, weight} } — preloaded for instant scan lookup
+let stockCache     = null;    // { [normalizedUPC]: {stock, notes} } — preloaded for instant scan lookup
+let cacheReady     = false;
 
 // ─── API ──────────────────────────────────────────────────
 async function api(params) {
@@ -596,7 +563,7 @@ function updatePinDots() {
 async function checkPin() {
   document.getElementById('pin-error').textContent = '';
   document.getElementById('pin-staff-name').textContent = 'Checking...';
-  
+
   try {
     const result = await api({ action: 'verifyPin', pin: pinBuffer });
     if (result.success) {
@@ -604,7 +571,7 @@ async function checkPin() {
       document.getElementById('pin-screen').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
       document.getElementById('staff-chip').textContent = '👤 ' + currentStaff;
-      // Auto-focus UPC field for Zebra scanner
+      // Auto-focus UPC field for scanner
       setTimeout(() => document.getElementById('manual-upc').focus(), 100);
     } else {
       document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
@@ -625,133 +592,67 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['scan','inventory','orders'][i] === name));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
+  if (name === 'scan')      setTimeout(() => document.getElementById('manual-upc').focus(), 100);
   if (name === 'inventory') loadInventory();
   if (name === 'orders')    loadOrders();
 }
 
-// ─── Scanner ──────────────────────────────────────────────
-let cameraStream = null;
+// ─── Cache preload (makes scans instant) ───────────────────
+// Strategy: ask the sheet's file for its last-modified timestamp (one tiny,
+// fast call). If it matches what we already have saved locally, use that
+// local copy instantly — no need to re-download the whole catalog. If it's
+// different (or we've never cached before), do the full fetch once and save it.
+const CACHE_KEY = 'gv_catalog_cache_v1';
 
-function toggleScanner() { scannerRunning ? stopScanner() : startScanner(); }
-
-async function startScanner() {
-  document.getElementById('scan-placeholder').style.display = 'none';
-  document.getElementById('scan-overlay').style.display = 'flex';
-  document.getElementById('btn-scan').textContent = '⏹ Stop Camera';
-  document.getElementById('capture-row').style.display = 'block';
-
+async function preloadCache(force) {
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
+    const versionResult  = await api({ action: 'getVersion' });
+    const remoteVersion  = versionResult && versionResult.version;
+    const savedRaw       = localStorage.getItem(CACHE_KEY);
+    const saved          = savedRaw ? safeParse(savedRaw) : null;
 
-    let video = document.getElementById('scanner-video');
-    if (!video) {
-      video = document.createElement('video');
-      video.id = 'scanner-video';
-      video.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;';
-      document.getElementById('scanner-container').appendChild(video);
-    }
-    video.srcObject = cameraStream;
-    video.style.display = 'block';
-    video.play();
-    scannerRunning = true;
-    scanCounts = {};
-
-    // Also try ZXing barcode scanning in background
-    if (typeof ZXing !== 'undefined') {
-      try {
-        const reader = new ZXing.BrowserMultiFormatReader();
-        reader.decodeFromStream(cameraStream, video, (result, err) => {
-          if (result) {
-            const code = result.getText();
-            if (!code || code === lastScanned) return;
-            scanCounts[code] = (scanCounts[code] || 0) + 1;
-            if (scanCounts[code] >= 2) {
-              lastScanned = code;
-              scanCounts = {};
-              stopScanner();
-              lookupUPC(code);
-            }
-          }
-        });
-      } catch(e) { console.log('ZXing background scan failed:', e); }
+    if (!force && saved && remoteVersion && saved.version === remoteVersion) {
+      // Nothing changed in the sheet since we last cached — use it as-is, instantly.
+      productsCache = saved.products;
+      stockCache    = saved.inventory;
+      cacheReady    = true;
+      return;
     }
 
+    // Stale, missing, or forced — do one full fetch and save it for next time.
+    const [products, inventory] = await Promise.all([
+      api({ action: 'getAllProducts' }),
+      api({ action: 'getInventory' })
+    ]);
+
+    productsCache = {};
+    (products.items || []).forEach(p => { productsCache[normalizeUPCClient(p.upc)] = p; });
+    stockCache = {};
+    (inventory.items || []).forEach(i => { stockCache[normalizeUPCClient(i.upc)] = i; });
+    cacheReady = true;
+
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      version: remoteVersion, products: productsCache, inventory: stockCache
+    }));
   } catch (e) {
-    showError('Camera access denied. Use manual entry below.');
-    stopScanner();
-  }
-}
-
-function stopScanner() {
-  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
-  scannerRunning = false;
-  scanCounts = {};
-  const video = document.getElementById('scanner-video');
-  if (video) { video.style.display = 'none'; video.srcObject = null; }
-  document.getElementById('btn-scan').textContent = '📷 Start Camera';
-  document.getElementById('scan-overlay').style.display = 'none';
-  document.getElementById('scan-placeholder').style.display = 'flex';
-  document.getElementById('capture-row').style.display = 'none';
-}
-
-// ─── OCR Capture ──────────────────────────────────────────
-async function captureOCR() {
-  if (!scannerRunning) return;
-  const btn = document.getElementById('btn-capture');
-  btn.textContent = 'Reading...';
-  btn.disabled = true;
-
-  try {
-    const video = document.getElementById('scanner-video');
-    const canvas = document.createElement('canvas');
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('product-card').classList.remove('visible');
-    stopScanner();
-
-    const result = await Tesseract.recognize(canvas, 'eng', {
-      tessedit_char_whitelist: '0123456789 ',
-    });
-
-    const text = result.data.text.replace(/\s/g, '');
-    const matches = [...new Set(text.match(/\d{10,14}/g) || [])];
-
-    document.getElementById('loading').style.display = 'none';
-
-    if (matches.length === 0) {
-      showError('No UPC found. Try holding closer and steadier, then capture again.');
-    } else if (matches.length === 1) {
-      document.getElementById('manual-upc').value = matches[0];
-      lookupUPC(matches[0]);
+    // Network hiccup — fall back to whatever we have saved locally, even if stale,
+    // rather than leaving the app with nothing.
+    const savedRaw = localStorage.getItem(CACHE_KEY);
+    const saved    = savedRaw ? safeParse(savedRaw) : null;
+    if (saved) {
+      productsCache = saved.products;
+      stockCache    = saved.inventory;
+      cacheReady    = true;
     } else {
-      showUPCPicker(matches);
+      cacheReady = false; // lookupUPC() will fall back to a live per-scan API call
     }
-  } catch (e) {
-    document.getElementById('loading').style.display = 'none';
-    showError('Could not read label. Try again.');
   }
-
-  btn.textContent = '📸 Capture to Read Label';
-  btn.disabled = false;
 }
 
-function showUPCPicker(upcs) {
-  const list = upcs.map(u =>
-    `<button onclick="pickUPC('${u}')" style="width:100%;padding:12px;margin-bottom:8px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;font-family:monospace;font-size:16px;cursor:pointer;">${u}</button>`
-  ).join('');
-  document.getElementById('error-msg').innerHTML = `<div style="font-weight:600;margin-bottom:8px;color:var(--text)">Multiple numbers found — pick the UPC:</div>${list}`;
-  document.getElementById('error-msg').style.display = 'block';
-}
+function safeParse(str) { try { return JSON.parse(str); } catch (e) { return null; } }
 
-function pickUPC(upc) {
-  document.getElementById('error-msg').style.display = 'none';
-  document.getElementById('manual-upc').value = upc;
-  lookupUPC(upc);
+function normalizeUPCClient(upc) {
+  return String(upc).replace(/^0+/, '');
 }
 
 // ─── Lookup ───────────────────────────────────────────────
@@ -760,82 +661,45 @@ function lookupManual() {
   if (val) lookupUPC(val);
 }
 
-// Auto-submit on Enter key in UPC field
-document.addEventListener('DOMContentLoaded', () => {
-  const upcInput = document.getElementById('manual-upc');
-  const qtyInput = document.getElementById('order-qty');
-
-  upcInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const val = upcInput.value.trim();
-      if (val) lookupUPC(val);
-    }
-  });
-
-  qtyInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addToOrder().then(() => {
-        setTimeout(() => {
-          document.getElementById('product-card').classList.remove('visible');
-          document.getElementById('error-msg').style.display = 'none';
-          upcInput.value = '';
-          upcInput.focus();
-          lastScanned = '';
-        }, 800);
-      });
-    }
-  });
-
-  // Also listen for Enter when product card is visible — submit the order
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && currentProduct && document.getElementById('product-card').classList.contains('visible')) {
-      // Only if UPC field is not focused (so we don't double-trigger)
-      if (document.activeElement !== upcInput) {
-        e.preventDefault();
-        addToOrder().then(() => {
-          // After order added, clear and refocus UPC field for next scan
-          setTimeout(() => {
-            document.getElementById('product-card').classList.remove('visible');
-            document.getElementById('error-msg').style.display = 'none';
-            upcInput.value = '';
-            upcInput.focus();
-            lastScanned = '';
-          }, 800);
-        });
-      }
-    }
-  });
-});
-
-// If a product is currently on screen and hasn't been added yet, commit it
-// to the order (using whatever qty is showing, default 1) before moving on
-// to the newly scanned item. This is what lets staff scan item after item
-// without tapping "Add to Order" each time.
-async function autoCommitPendingItem() {
-  const card = document.getElementById('product-card');
-  if (!currentProduct || !card.classList.contains('visible')) return;
-  const name = document.getElementById('p-name').value.trim();
-  if (!name) return; // nothing meaningful to save (e.g. unknown item left blank) — just drop it
-  await addToOrder();
-}
-
 async function lookupUPC(upc) {
-  if (currentProduct && currentProduct.upc !== upc) {
-    await autoCommitPendingItem();
-  }
-
   document.getElementById('product-card').classList.remove('visible');
   document.getElementById('error-msg').style.display = 'none';
-  document.getElementById('loading').style.display = 'block';
 
+  const norm = normalizeUPCClient(upc);
+
+  // Instant path — served entirely from memory, no network wait
+  if (cacheReady && productsCache && stockCache) {
+    const p = productsCache[norm];
+    const s = stockCache[norm];
+    showProduct({
+      upc,
+      name:      p ? (p.name   || '') : '',
+      brand:     '',
+      vendor:    p ? (p.vendor || '') : '',
+      weight:    p ? (p.weight || '') : '',
+      stock:     s ? s.stock : 0,
+      notes:     s ? (s.notes || '') : '',
+      isKnown:   !!s,
+      foundInDB: !!p || !!s
+    });
+    return;
+  }
+
+  // Fallback: cache not ready yet (e.g. right after login) — hit the network once
+  document.getElementById('loading').style.display = 'block';
   try {
-    // Run both calls in parallel
-    const [catalogData, inventoryData] = await Promise.all([
-      api({ action: 'lookupProduct', upc }),
-      api({ action: 'getProduct', upc })
-    ]);
+    let catalogData, inventoryData;
+    const combined = await api({ action: 'lookup', upc });
+
+    if (combined && combined.catalog) {
+      catalogData   = combined.catalog;
+      inventoryData = combined.inventory;
+    } else {
+      [catalogData, inventoryData] = await Promise.all([
+        api({ action: 'lookupProduct', upc }),
+        api({ action: 'getProduct', upc })
+      ]);
+    }
 
     document.getElementById('loading').style.display = 'none';
 
@@ -859,6 +723,7 @@ async function lookupUPC(upc) {
 
 function showProduct(product) {
   currentProduct = product;
+  productDirty   = false;
 
   document.getElementById('p-upc').textContent          = 'UPC: ' + product.upc;
   document.getElementById('p-name').value               = product.name   || '';
@@ -872,14 +737,17 @@ function showProduct(product) {
   document.getElementById('vendor-saved').style.display = (product.isKnown && product.vendor) ? 'block' : 'none';
   document.getElementById('product-card').classList.add('visible');
 
-  // Clear and refocus the UPC field so the next scan can go straight in —
-  // scanning a different item will auto-commit this one via autoCommitPendingItem().
-  const upcInput = document.getElementById('manual-upc');
-  upcInput.value = '';
-  setTimeout(() => upcInput.focus(), 100);
+  // Scanner workflow: focus quantity so you can type qty + Enter immediately
+  setTimeout(() => {
+    const qty = document.getElementById('order-qty');
+    qty.focus();
+    qty.select();
+  }, 30);
 }
 
-// ─── Save ─────────────────────────────────────────────────
+// ─── Save (only when the user actually edited something) ──
+function markDirty() { productDirty = true; }
+
 async function saveProductData() {
   if (!currentProduct) return;
   const name   = document.getElementById('p-name').value.trim();
@@ -889,12 +757,20 @@ async function saveProductData() {
   const notes  = document.getElementById('p-notes').value.trim();
   currentProduct = { ...currentProduct, name, brand, stock, vendor, notes };
   await api({ action: 'saveProduct', upc: currentProduct.upc, name, brand, vendor, stock, notes });
+  productDirty = false;
+
+  // Reflect the edit in the local cache immediately, so the Inventory tab
+  // shows fresh data without waiting for the next background version check.
+  if (stockCache) {
+    const norm = normalizeUPCClient(currentProduct.upc);
+    stockCache[norm] = { upc: currentProduct.upc, name, brand, vendor, stock, notes };
+  }
 }
 
 function adjustStock(delta) {
   const input = document.getElementById('p-stock');
   input.value = Math.max(0, parseInt(input.value || 0) + delta);
-  saveProductData();
+  markDirty();
 }
 
 function adjustQty(delta) {
@@ -902,60 +778,119 @@ function adjustQty(delta) {
   input.value = Math.max(1, parseInt(input.value || 1) + delta);
 }
 
+// ─── Add to order ─────────────────────────────────────────
 async function addToOrder() {
-  if (!currentProduct) return;
+  if (!currentProduct || adding) return false;
   const name = document.getElementById('p-name').value.trim();
-  if (!name) { showToast('Please enter a product name first', true); return; }
+  if (!name) { showToast('Please enter a product name first', true); return false; }
 
+  adding = true;
   const btn = document.getElementById('btn-add-order');
   btn.textContent = 'Adding...'; btn.disabled = true;
-  await saveProductData();
 
   const qty    = parseInt(document.getElementById('order-qty').value) || 1;
   const vendor = document.getElementById('p-vendor').value.trim();
   const brand  = document.getElementById('p-brand').value.trim();
 
-  const result = await api({ action: 'addOrder', upc: currentProduct.upc, name, brand, vendor, weight: currentProduct.weight || '', qty, staff: currentStaff });
-  btn.textContent = '+ Add to Order'; btn.disabled = false;
+  // Run the (optional) product save and the order write in parallel — much faster
+  const calls = [
+    api({ action: 'addOrder', upc: currentProduct.upc, name, brand, vendor, weight: currentProduct.weight || '', qty, staff: currentStaff })
+  ];
+  if (productDirty) calls.push(saveProductData());
 
-  if (result.error) { showToast('Error saving order', true); return; }
+  const [result] = await Promise.all(calls);
+
+  btn.textContent = '+ Add to Order'; btn.disabled = false;
+  adding = false;
+
+  if (result.error) { showToast('Error saving order', true); return false; }
   ordersCache.push({ ...currentProduct, name, brand, qty, vendor, staff: currentStaff });
   document.getElementById('order-count').textContent = ordersCache.length;
-  showToast(`Added ${qty}× ${name} to order`);
-  currentProduct = null; // prevent this item from being committed a second time
+  showToast(`✓ ${qty}× ${name} → ${vendor || 'Unknown Vendor'}`);
+  return true;
+}
+
+// Add order, then reset for the next scan (shared by button + Enter key)
+function submitOrder() {
+  addToOrder().then((ok) => {
+    if (ok) resetScan();
+  });
 }
 
 // ─── Inventory ────────────────────────────────────────────
+let lowStockOnly = false;
+
 async function loadInventory() {
   const list = document.getElementById('inv-list');
+
+  // Instant path — the cache is already warm from preloadCache(), no need to
+  // hit the network just to switch tabs.
+  if (cacheReady && stockCache) {
+    inventoryCache = Object.values(stockCache);
+    document.getElementById('inv-count').textContent = inventoryCache.length + ' items';
+    filterInventory();
+    return;
+  }
+
+  // Fallback: cache not ready yet — fetch live just this once
   list.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading...</div>`;
   const data = await api({ action: 'getInventory' });
   inventoryCache = data.items || [];
   document.getElementById('inv-count').textContent = inventoryCache.length + ' items';
-  renderInventory(inventoryCache);
+  filterInventory();
+}
+
+// Manual pull — forces a real re-check of the sheet (bypasses the version
+// cache) in case someone just edited it and you don't want to wait for the
+// periodic background check.
+async function refreshInventory() {
+  const list = document.getElementById('inv-list');
+  list.innerHTML = `<div class="loading-state"><div class="spinner"></div>Refreshing...</div>`;
+  await preloadCache(true);
+  loadInventory();
+  showToast('Inventory refreshed');
+}
+
+function toggleLowStockFilter() {
+  lowStockOnly = !lowStockOnly;
+  document.getElementById('low-stock-toggle').style.background = lowStockOnly ? 'var(--danger)' : 'var(--surface2)';
+  document.getElementById('low-stock-toggle').style.color      = lowStockOnly ? 'var(--white)'  : 'var(--text)';
+  filterInventory();
 }
 
 function filterInventory() {
-  const q = document.getElementById('inv-search').value.toLowerCase();
-  const filtered = inventoryCache.filter(i =>
+  const q      = document.getElementById('inv-search').value.toLowerCase();
+  const sortBy = document.getElementById('inv-sort').value;
+
+  let filtered = inventoryCache.filter(i =>
     (i.name||'').toLowerCase().includes(q) ||
-    (i.brand||'').toLowerCase().includes(q) ||
-    (i.vendor||'').toLowerCase().includes(q)
+    (i.vendor||'').toLowerCase().includes(q) ||
+    String(i.upc||'').includes(q)
   );
+
+  if (lowStockOnly) filtered = filtered.filter(i => Number(i.stock) <= 5);
+
+  filtered = filtered.sort((a, b) => {
+    if (sortBy === 'stock-desc') return Number(b.stock) - Number(a.stock);
+    if (sortBy === 'name')       return (a.name  || '').localeCompare(b.name  || '');
+    if (sortBy === 'vendor')     return (a.vendor|| '').localeCompare(b.vendor|| '');
+    return Number(a.stock) - Number(b.stock); // stock-asc (default)
+  });
+
   renderInventory(filtered);
 }
 
 function renderInventory(items) {
   const list = document.getElementById('inv-list');
   if (!items.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>No items found.</div>`; return; }
-  list.innerHTML = items.sort((a,b) => Number(a.stock) - Number(b.stock)).map(item => {
+  list.innerHTML = items.map(item => {
     const low   = Number(item.stock) <= 5;
     const color = low ? 'var(--danger)' : 'var(--green-mid)';
     return `<div class="inv-item">
       <div class="inv-dot" style="background:${color}"></div>
       <div class="inv-info">
         <div class="inv-name">${item.name || 'Unknown'}</div>
-        <div class="inv-brand">${item.brand || ''}${item.vendor ? ' · ' + item.vendor : ''}</div>
+        <div class="inv-brand">${item.vendor || ''}</div>
         ${item.notes ? `<div class="inv-notes">📝 ${item.notes}</div>` : ''}
       </div>
       <div class="inv-stock" style="color:${color}">${item.stock}</div>
@@ -979,19 +914,19 @@ function filterOrders() {
   const filtered = ordersCache.filter(o =>
     (o.name||'').toLowerCase().includes(q) ||
     (o.vendor||'').toLowerCase().includes(q) ||
-    (o.brand||'').toLowerCase().includes(q)
+    String(o.upc||'').includes(q)
   );
   renderOrders(filtered);
 }
 
 function renderOrders(orders) {
   const list = document.getElementById('order-list');
-  if (!orders.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div>No orders found.</div>`; return; }
+  if (!orders.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div>`; return; }
   list.innerHTML = orders.map(o => `
     <div class="order-item">
       <div class="order-info">
         <div class="order-name">${o.name}</div>
-        <div class="order-meta">${o.vendor || 'No vendor'} · ${o.brand || ''} ${o.staff ? '· <span>' + o.staff + '</span>' : ''}</div>
+        <div class="order-meta">${o.vendor || 'No vendor'}${o.weight ? ' · ' + o.weight : ''} ${o.staff ? '· <span>' + o.staff + '</span>' : ''}</div>
       </div>
       <div class="order-qty-badge">×${o.qty}</div>
     </div>`).join('');
@@ -1008,8 +943,8 @@ async function clearOrders() {
 
 function exportCSV() {
   if (!ordersCache.length) { showToast('No orders to export'); return; }
-  const rows = [['Date','Product Name','Brand','UPC','Order Qty','Vendor','Staff']];
-  ordersCache.forEach(o => rows.push([o.date||'', o.name, o.brand||'', o.upc, o.qty, o.vendor||'', o.staff||'']));
+  const rows = [['Date','UPC','Product Name','Weight','Vendor','Order Qty','Staff']];
+  ordersCache.forEach(o => rows.push([o.date||'', o.upc, o.name, o.weight||'', o.vendor||'', o.qty, o.staff||'']));
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -1020,11 +955,13 @@ function exportCSV() {
 
 // ─── Helpers ──────────────────────────────────────────────
 function resetScan() {
-  currentProduct = null; lastScanned = '';
+  currentProduct = null;
+  productDirty   = false;
   document.getElementById('product-card').classList.remove('visible');
   document.getElementById('error-msg').style.display = 'none';
-  document.getElementById('manual-upc').value = '';
-  document.getElementById('manual-upc').focus();
+  const upc = document.getElementById('manual-upc');
+  upc.value = '';
+  upc.focus();
 }
 
 function showError(msg) { const el = document.getElementById('error-msg'); el.textContent = msg; el.style.display = 'block'; }
@@ -1035,6 +972,38 @@ function showToast(msg, isError) {
   t.textContent = msg; t.className = 'toast' + (isError ? ' error' : ''); t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
+
+// ─── Scanner keyboard flow ────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const upcInput = document.getElementById('manual-upc');
+  const qtyInput = document.getElementById('order-qty');
+
+  // Scanner types UPC + Enter → look up product
+  upcInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = upcInput.value.trim();
+      if (val) lookupUPC(val);
+    }
+  });
+
+  // Type quantity + Enter → save to vendor sheet, reset for next scan
+  qtyInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitOrder();
+    }
+  });
+
+  // Start loading the catalog the instant the page opens — runs in the
+  // background while the PIN is being entered, so it's usually ready
+  // before the first scan happens.
+  preloadCache();
+
+  // Quietly re-check every 2 minutes in case someone else edits the sheet
+  // while this device stays logged in. Cheap no-op if nothing changed.
+  setInterval(() => preloadCache(false), 120000);
+});
 </script>
 </body>
 </html>
