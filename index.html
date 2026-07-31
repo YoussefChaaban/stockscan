@@ -895,13 +895,10 @@ function toggleLowStockFilter() {
 
 const RENDER_CAP = 200; // never build more DOM rows than this at once — keeps huge catalogs fast
 
-let invFilterDebounce;
+// Filtering/sorting even 36k+ items is fast on its own (simple string/number
+// ops) — the render cap above is what actually keeps this responsive, so the
+// search reacts on every keystroke with no artificial delay.
 function filterInventory() {
-  clearTimeout(invFilterDebounce);
-  invFilterDebounce = setTimeout(runInventoryFilter, 120); // debounce fast typing on a big catalog
-}
-
-function runInventoryFilter() {
   const q      = document.getElementById('inv-search').value.trim().toLowerCase();
   const sortBy = document.getElementById('inv-sort').value;
 
