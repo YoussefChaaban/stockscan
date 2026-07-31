@@ -818,26 +818,53 @@ function submitOrder() {
 }
 
 // ─── Inventory ────────────────────────────────────────────
+// Base list is the full Products catalog (everything), enriched with real
+// stock/notes for whatever has actually been scanned and saved before.
+// Anything never scanned shows as "not yet counted" rather than a fake 0.
 let lowStockOnly = false;
 
 async function loadInventory() {
   const list = document.getElementById('inv-list');
 
-  // Instant path — the cache is already warm from preloadCache(), no need to
-  // hit the network just to switch tabs.
-  if (cacheReady && stockCache) {
-    inventoryCache = Object.values(stockCache);
+  // Instant path — caches are already warm from preloadCache()
+  if (cacheReady && productsCache && stockCache) {
+    inventoryCache = buildMergedInventory();
     document.getElementById('inv-count').textContent = inventoryCache.length + ' items';
     filterInventory();
     return;
   }
 
-  // Fallback: cache not ready yet — fetch live just this once
+  // Fallback: caches not ready yet — fetch live just this once
   list.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading...</div>`;
-  const data = await api({ action: 'getInventory' });
-  inventoryCache = data.items || [];
+  await preloadCache(true);
+  inventoryCache = buildMergedInventory();
   document.getElementById('inv-count').textContent = inventoryCache.length + ' items';
   filterInventory();
+}
+
+function buildMergedInventory() {
+  const merged = {};
+
+  // Start with the full Products catalog — this is "everything"
+  Object.keys(productsCache || {}).forEach(norm => {
+    const p = productsCache[norm];
+    merged[norm] = {
+      upc: p.upc, name: p.name, vendor: p.vendor,
+      stock: null, notes: '', counted: false
+    };
+  });
+
+  // Overlay real counts for anything that's actually been scanned/saved
+  Object.keys(stockCache || {}).forEach(norm => {
+    const s = stockCache[norm];
+    merged[norm] = {
+      upc: s.upc, name: s.name || (merged[norm] && merged[norm].name) || '',
+      vendor: s.vendor || (merged[norm] && merged[norm].vendor) || '',
+      stock: s.stock, notes: s.notes || '', counted: true
+    };
+  });
+
+  return Object.values(merged);
 }
 
 // Manual pull — forces a real re-check of the sheet (bypasses the version
@@ -868,22 +895,42 @@ function filterInventory() {
     String(i.upc||'').includes(q)
   );
 
-  if (lowStockOnly) filtered = filtered.filter(i => Number(i.stock) <= 5);
+  // "Low only" applies to items that have actually been counted and are low —
+  // never-counted items aren't included since we don't know their real stock.
+  if (lowStockOnly) filtered = filtered.filter(i => i.counted && Number(i.stock) <= 5);
 
   filtered = filtered.sort((a, b) => {
-    if (sortBy === 'stock-desc') return Number(b.stock) - Number(a.stock);
+    if (sortBy === 'stock-desc') return stockSortValue(b, true) - stockSortValue(a, true);
     if (sortBy === 'name')       return (a.name  || '').localeCompare(b.name  || '');
     if (sortBy === 'vendor')     return (a.vendor|| '').localeCompare(b.vendor|| '');
-    return Number(a.stock) - Number(b.stock); // stock-asc (default)
+    return stockSortValue(a, false) - stockSortValue(b, false); // stock-asc (default)
   });
 
   renderInventory(filtered);
+}
+
+// Never-counted items sort to the end for "low→high" (nothing urgent to act on
+// yet) and to the start for "high→low" is avoided too — they just stay last
+// either way so real, actionable stock numbers surface first.
+function stockSortValue(item, descending) {
+  if (!item.counted) return descending ? -1 : Infinity;
+  return Number(item.stock);
 }
 
 function renderInventory(items) {
   const list = document.getElementById('inv-list');
   if (!items.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>No items found.</div>`; return; }
   list.innerHTML = items.map(item => {
+    if (!item.counted) {
+      return `<div class="inv-item">
+        <div class="inv-dot" style="background:var(--muted)"></div>
+        <div class="inv-info">
+          <div class="inv-name">${item.name || 'Unknown'}</div>
+          <div class="inv-brand">${item.vendor || ''}</div>
+        </div>
+        <div class="inv-stock" style="color:var(--muted); font-size:11px; font-weight:600;">Not counted</div>
+      </div>`;
+    }
     const low   = Number(item.stock) <= 5;
     const color = low ? 'var(--danger)' : 'var(--green-mid)';
     return `<div class="inv-item">
@@ -897,6 +944,7 @@ function renderInventory(items) {
     </div>`;
   }).join('');
 }
+
 
 // ─── Orders ───────────────────────────────────────────────
 async function loadOrders() {
