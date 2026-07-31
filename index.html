@@ -949,7 +949,7 @@ function renderInventory(items) {
         <div class="inv-dot" style="background:var(--muted)"></div>
         <div class="inv-info">
           <div class="inv-name">${item.name || 'Unknown'}</div>
-          <div class="inv-brand">${item.vendor || ''}</div>
+          <div class="inv-brand">${item.vendor || ''}${item.vendor && item.upc ? ' · ' : ''}${item.upc ? 'SKU ' + item.upc : ''}</div>
         </div>
         <div class="inv-stock" style="color:var(--muted); font-size:11px; font-weight:600;">Not counted</div>
       </div>`;
@@ -960,7 +960,7 @@ function renderInventory(items) {
       <div class="inv-dot" style="background:${color}"></div>
       <div class="inv-info">
         <div class="inv-name">${item.name || 'Unknown'}</div>
-        <div class="inv-brand">${item.vendor || ''}</div>
+        <div class="inv-brand">${item.vendor || ''}${item.vendor && item.upc ? ' · ' : ''}${item.upc ? 'SKU ' + item.upc : ''}</div>
         ${item.notes ? `<div class="inv-notes">📝 ${item.notes}</div>` : ''}
       </div>
       <div class="inv-stock" style="color:${color}">${item.stock}</div>
