@@ -406,7 +406,7 @@
   <div class="view active" id="view-scan">
 
     <div class="manual-input" style="padding: 16px 16px 14px;">
-      <input type="text" id="manual-upc" placeholder="Scan or enter UPC..." inputmode="numeric" autocomplete="off" />
+      <input type="text" id="manual-upc" placeholder="Scan or enter UPC..." inputmode="none" autocomplete="off" />
       <button onclick="lookupManual()">Look up</button>
     </div>
 
@@ -454,7 +454,7 @@
             <div class="order-qty-label">Order Qty</div>
             <div class="qty-stepper">
               <button onclick="adjustQty(-1)">−</button>
-              <input type="number" id="order-qty" value="1" min="1" />
+              <input type="number" id="order-qty" value="1" min="1" inputmode="none" />
               <button onclick="adjustQty(1)">+</button>
             </div>
           </div>
@@ -495,7 +495,10 @@
   <div class="view" id="view-orders">
     <div class="view-header">
       <div class="view-title">Order List</div>
-      <div class="count-chip" id="orders-count">0 items</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div id="failed-badge" onclick="retryFailedOrders()" style="display:none; background:var(--danger); color:var(--white); font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; cursor:pointer; white-space:nowrap;"></div>
+        <div class="count-chip" id="orders-count">0 items</div>
+      </div>
     </div>
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
@@ -524,7 +527,6 @@ let inventoryCache = [];
 let currentStaff   = '';
 let pinBuffer      = '';
 let productDirty   = false;   // only save product if the user actually edited a field
-let adding         = false;   // guard against double order submission
 let productsCache  = null;    // { [normalizedUPC]: {name, vendor, weight} } — preloaded for instant scan lookup
 let stockCache     = null;    // { [normalizedUPC]: {stock, notes} } — preloaded for instant scan lookup
 let cacheReady     = false;
@@ -787,42 +789,108 @@ function adjustQty(delta) {
 }
 
 // ─── Add to order ─────────────────────────────────────────
-async function addToOrder() {
-  if (!currentProduct || adding) return false;
+// The UI resets for the next scan the INSTANT you hit Enter — the actual
+// write to the sheet happens in the background afterward. If it fails
+// (network blip, etc.), it's queued and auto-retried once, then flagged
+// with a visible "Retry" badge on the Orders tab as a safety net. Nothing
+// is ever silently lost — it's either saved or clearly flagged as failed.
+let failedOrders = [];
+
+function buildOrderPayload() {
+  if (!currentProduct) return null;
   const name = document.getElementById('p-name').value.trim();
-  if (!name) { showToast('Please enter a product name first', true); return false; }
+  if (!name) { showToast('Please enter a product name first', true); return null; }
 
-  adding = true;
-  const btn = document.getElementById('btn-add-order');
-  btn.textContent = 'Adding...'; btn.disabled = true;
-
-  const qty    = parseInt(document.getElementById('order-qty').value) || 1;
-  const vendor = document.getElementById('p-vendor').value.trim();
-  const brand  = document.getElementById('p-brand').value.trim();
-
-  // Run the (optional) product save and the order write in parallel — much faster
-  const calls = [
-    api({ action: 'addOrder', upc: currentProduct.upc, name, brand, vendor, weight: currentProduct.weight || '', qty, staff: currentStaff })
-  ];
-  if (productDirty) calls.push(saveProductData());
-
-  const [result] = await Promise.all(calls);
-
-  btn.textContent = '+ Add to Order'; btn.disabled = false;
-  adding = false;
-
-  if (result.error) { showToast('Error saving order', true); return false; }
-  ordersCache.push({ ...currentProduct, name, brand, qty, vendor, staff: currentStaff });
-  document.getElementById('order-count').textContent = ordersCache.length;
-  showToast(`✓ ${qty}× ${name} → ${vendor || 'Unknown Vendor'}`);
-  return true;
+  return {
+    upc:    currentProduct.upc,
+    name,
+    brand:  document.getElementById('p-brand').value.trim(),
+    vendor: document.getElementById('p-vendor').value.trim(),
+    weight: currentProduct.weight || '',
+    qty:    parseInt(document.getElementById('order-qty').value) || 1,
+    stock:  parseInt(document.getElementById('p-stock').value) || 0,
+    notes:  document.getElementById('p-notes').value.trim(),
+    staff:  currentStaff,
+    needsProductSave: productDirty,
+    _retried: false
+  };
 }
 
-// Add order, then reset for the next scan (shared by button + Enter key)
-function submitOrder() {
-  addToOrder().then((ok) => {
-    if (ok) resetScan();
+// Shows up immediately in the order count/toast — the network call happens
+// after, without blocking the UI from moving on to the next scan.
+function queueOrder(payload) {
+  ordersCache.push({
+    upc: payload.upc, name: payload.name, brand: payload.brand, vendor: payload.vendor,
+    weight: payload.weight, qty: payload.qty, staff: payload.staff
   });
+  document.getElementById('order-count').textContent = ordersCache.length;
+  showToast(`✓ ${payload.qty}× ${payload.name} → ${payload.vendor || 'Unknown Vendor'}`);
+  sendOrderInBackground(payload); // fire-and-forget — not awaited
+}
+
+async function sendOrderInBackground(payload) {
+  try {
+    const calls = [
+      api({ action: 'addOrder', upc: payload.upc, name: payload.name, brand: payload.brand, vendor: payload.vendor, weight: payload.weight, qty: payload.qty, staff: payload.staff })
+    ];
+    if (payload.needsProductSave) {
+      calls.push(api({ action: 'saveProduct', upc: payload.upc, name: payload.name, brand: payload.brand, vendor: payload.vendor, stock: payload.stock, notes: payload.notes }));
+      if (stockCache) {
+        const norm = normalizeUPCClient(payload.upc);
+        stockCache[norm] = { upc: payload.upc, name: payload.name, brand: payload.brand, vendor: payload.vendor, stock: payload.stock, notes: payload.notes };
+      }
+    }
+    const [result] = await Promise.all(calls);
+    if (result && result.error) throw new Error(result.error);
+  } catch (e) {
+    failedOrders.push(payload);
+    updateFailedBadge();
+    if (!payload._retried) {
+      payload._retried = true;
+      showToast(`⚠ Save failed for ${payload.qty}× ${payload.name} — retrying...`, true);
+      setTimeout(() => retrySingleOrder(payload), 4000);
+    } else {
+      showToast(`⚠ Still failing to save ${payload.qty}× ${payload.name} — check Orders tab`, true);
+    }
+  }
+}
+
+async function retrySingleOrder(payload) {
+  const idx = failedOrders.indexOf(payload);
+  if (idx !== -1) failedOrders.splice(idx, 1);
+  updateFailedBadge();
+  await sendOrderInBackground(payload);
+}
+
+async function retryFailedOrders() {
+  if (!failedOrders.length) return;
+  const toRetry = failedOrders.slice();
+  failedOrders = [];
+  updateFailedBadge();
+  showToast(`Retrying ${toRetry.length} order${toRetry.length === 1 ? '' : 's'}...`);
+  for (const payload of toRetry) {
+    await sendOrderInBackground(payload);
+  }
+}
+
+function updateFailedBadge() {
+  const el = document.getElementById('failed-badge');
+  if (!el) return;
+  if (failedOrders.length > 0) {
+    el.style.display = 'inline-block';
+    el.textContent = `⚠ ${failedOrders.length} failed — Retry`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// Add order, then instantly reset for the next scan — the write to the
+// sheet happens in the background, it does not hold up the UI.
+function submitOrder() {
+  const payload = buildOrderPayload();
+  if (!payload) return; // validation failed (e.g. no name) — stay put so it can be fixed
+  resetScan();
+  queueOrder(payload);
 }
 
 // ─── Inventory ────────────────────────────────────────────
@@ -1078,7 +1146,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (/^\d{6,}$/.test(raw)) {
       const nextUPC = raw;
       qtyInput.value = '1';
-      addToOrder().then(() => lookupUPC(nextUPC));
+      const payload = buildOrderPayload(); // reads the qty field we just reset to '1'
+      if (payload) queueOrder(payload);
+      lookupUPC(nextUPC); // move on immediately — no waiting on the save
       return;
     }
 
