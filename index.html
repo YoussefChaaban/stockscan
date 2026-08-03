@@ -1063,12 +1063,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Type quantity + Enter → save to vendor sheet, reset for next scan
+  // Type quantity + Enter → save to vendor sheet, reset for next scan.
+  // BUT: since the qty field auto-focuses after every lookup, scanning the
+  // *next* item right away (without touching quantity) sends that barcode
+  // into this field instead of the UPC field. Detect that (a real quantity
+  // is never 6+ digits; a UPC always is) and treat it as "scan next item":
+  // commit whatever's currently shown at its default qty, then look up the
+  // newly scanned code — so rapid back-to-back scanning just works.
   qtyInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      submitOrder();
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+
+    const raw = qtyInput.value.trim();
+    if (/^\d{6,}$/.test(raw)) {
+      const nextUPC = raw;
+      qtyInput.value = '1';
+      addToOrder().then(() => lookupUPC(nextUPC));
+      return;
     }
+
+    submitOrder();
   });
 
   // Start loading the catalog the instant the page opens — runs in the
