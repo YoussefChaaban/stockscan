@@ -250,6 +250,23 @@
     border-radius: 8px; padding: 6px; color: var(--text); font-size: 18px; font-weight: 700; text-align: center; outline: none;
   }
 
+  /* ─── Compact quantity keypad (replaces the full OS keyboard) ────── */
+  .mini-keypad {
+    display: none; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    margin-top: 10px; padding: 8px; background: var(--surface2);
+    border: 1.5px solid var(--border); border-radius: 10px;
+  }
+  .mini-keypad.visible { display: grid; }
+  .mini-keypad button {
+    height: 38px; border: none; border-radius: 7px; background: var(--white);
+    border: 1.5px solid var(--border); color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  .mini-keypad button:active { background: var(--green-pale); transform: scale(0.96); }
+  .mini-keypad .mk-clear { color: var(--danger); font-size: 12px; }
+  .mini-keypad .mk-back  { font-size: 15px; }
+  .mini-keypad .mk-go    { background: var(--green-mid); color: var(--white); border-color: var(--green-mid); }
+
   .btn-add-order {
     padding: 10px 16px; background: var(--green-dark); color: var(--white); border: none;
     border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
@@ -454,11 +471,27 @@
             <div class="order-qty-label">Order Qty</div>
             <div class="qty-stepper">
               <button onclick="adjustQty(-1)">−</button>
-              <input type="text" id="order-qty" value="1" inputmode="numeric" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+              <input type="text" id="order-qty" value="1" inputmode="none" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
               <button onclick="adjustQty(1)">+</button>
             </div>
           </div>
           <button class="btn-add-order" id="btn-add-order" onclick="submitOrder()">+ Add to Order</button>
+        </div>
+
+        <div class="mini-keypad" id="qty-keypad">
+          <button onclick="keypadPress('1')">1</button>
+          <button onclick="keypadPress('2')">2</button>
+          <button onclick="keypadPress('3')">3</button>
+          <button onclick="keypadPress('4')">4</button>
+          <button onclick="keypadPress('5')">5</button>
+          <button onclick="keypadPress('6')">6</button>
+          <button onclick="keypadPress('7')">7</button>
+          <button onclick="keypadPress('8')">8</button>
+          <button onclick="keypadPress('9')">9</button>
+          <button class="mk-clear" onclick="keypadClear()">Clear</button>
+          <button onclick="keypadPress('0')">0</button>
+          <button class="mk-back" onclick="keypadBackspace()">⌫</button>
+          <button class="mk-go" style="grid-column: span 3;" onclick="submitOrder()">✓ Add to Order</button>
         </div>
       </div>
     </div>
@@ -734,6 +767,7 @@ async function lookupUPC(upc) {
 function showProduct(product) {
   currentProduct = product;
   productDirty   = false;
+  qtyFresh       = true;
 
   document.getElementById('p-upc').textContent          = 'UPC: ' + product.upc;
   document.getElementById('p-name').value               = product.name   || '';
@@ -746,13 +780,13 @@ function showProduct(product) {
   document.getElementById('unknown-hint').style.display = product.foundInDB ? 'none' : 'block';
   document.getElementById('vendor-saved').style.display = (product.isKnown && product.vendor) ? 'block' : 'none';
   document.getElementById('product-card').classList.add('visible');
+  document.getElementById('qty-keypad').classList.add('visible');
 
-  // Scanner workflow: focus quantity so you can type qty + Enter immediately
-  setTimeout(() => {
-    const qty = document.getElementById('order-qty');
-    qty.focus();
-    qty.select();
-  }, 30);
+  // Focus (but don't select-all, since the custom keypad below handles
+  // typed entry) so the scanner's *next* barcode, if you scan one instead
+  // of tapping a quantity, lands in this field and triggers the
+  // auto-default-to-1-and-move-on behavior in the keydown handler.
+  setTimeout(() => document.getElementById('order-qty').focus(), 30);
 }
 
 // ─── Save (only when the user actually edited something) ──
@@ -786,6 +820,30 @@ function adjustStock(delta) {
 function adjustQty(delta) {
   const input = document.getElementById('order-qty');
   input.value = Math.max(1, parseInt(input.value || 1) + delta);
+  qtyFresh = false;
+}
+
+// ─── Compact quantity keypad ────────────────────────────────
+// A qtyFresh flag tracks whether the field still shows its untouched
+// default ('1' right after a scan) — the first tap replaces it instead
+// of appending, so tapping "5" gives you "5" instead of "15".
+let qtyFresh = true;
+
+function keypadPress(digit) {
+  const input = document.getElementById('order-qty');
+  input.value = qtyFresh ? digit : (input.value + digit);
+  qtyFresh = false;
+}
+
+function keypadBackspace() {
+  const input = document.getElementById('order-qty');
+  input.value = input.value.slice(0, -1);
+  qtyFresh = false;
+}
+
+function keypadClear() {
+  document.getElementById('order-qty').value = '';
+  qtyFresh = false;
 }
 
 // ─── Add to order ─────────────────────────────────────────
@@ -1102,6 +1160,7 @@ function resetScan() {
   currentProduct = null;
   productDirty   = false;
   document.getElementById('product-card').classList.remove('visible');
+  document.getElementById('qty-keypad').classList.remove('visible');
   document.getElementById('error-msg').style.display = 'none';
   const upc = document.getElementById('manual-upc');
   upc.value = '';
