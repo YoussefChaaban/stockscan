@@ -1252,6 +1252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         qtyInput.value = '1';
         const payload = buildOrderPayload(); // reads the qty field we just reset to '1'
         if (payload) queueOrder(payload);
+        upcInput.value = nextUPC; // reflect the new scan in the search bar, same as a normal scan
         lookupUPC(nextUPC); // move on immediately — no waiting on the save
         return;
       }
