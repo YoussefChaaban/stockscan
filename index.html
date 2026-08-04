@@ -454,7 +454,7 @@
             <div class="order-qty-label">Order Qty</div>
             <div class="qty-stepper">
               <button onclick="adjustQty(-1)">−</button>
-              <input type="number" id="order-qty" value="1" min="1" inputmode="none" />
+              <input type="text" id="order-qty" value="1" inputmode="none" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
               <button onclick="adjustQty(1)">+</button>
             </div>
           </div>
