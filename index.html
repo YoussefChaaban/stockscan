@@ -454,7 +454,7 @@
             <div class="order-qty-label">Order Qty</div>
             <div class="qty-stepper">
               <button onclick="adjustQty(-1)">−</button>
-              <input type="text" id="order-qty" value="1" inputmode="none" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+              <input type="text" id="order-qty" value="1" inputmode="numeric" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
               <button onclick="adjustQty(1)">+</button>
             </div>
           </div>
@@ -1121,6 +1121,40 @@ function showToast(msg, isError) {
 document.addEventListener('DOMContentLoaded', () => {
   const upcInput = document.getElementById('manual-upc');
   const qtyInput = document.getElementById('order-qty');
+
+  // Keep inputmode="none" as the default (so the scanner's programmatic
+  // focus/typing never pops the on-screen keyboard), but flip it to
+  // "numeric" the instant a real finger actually taps the field — then
+  // flip it back once they tap away. A scanner-driven focus() call isn't
+  // preceded by a touch, so it never triggers this; a genuine tap always does.
+  function enableKeyboardOnTap(el) {
+    let suppressNextBlur = false;
+    const showKeyboard = () => {
+      el.setAttribute('inputmode', 'numeric');
+      // If it was already focused (common — it auto-focuses after every
+      // scan), some browsers won't re-check inputmode without a fresh
+      // focus event, so force one — but don't let that self-triggered
+      // blur immediately undo what we just set.
+      if (document.activeElement === el) {
+        suppressNextBlur = true;
+        el.blur();
+        setTimeout(() => el.focus(), 0);
+      }
+    };
+    const hideKeyboard = () => {
+      if (suppressNextBlur) { suppressNextBlur = false; return; }
+      el.setAttribute('inputmode', 'none');
+    };
+    el.addEventListener('touchstart', showKeyboard, { passive: true });
+    el.addEventListener('mousedown', showKeyboard);
+    el.addEventListener('blur', hideKeyboard);
+  }
+  enableKeyboardOnTap(upcInput);
+  // Note: order-qty intentionally does NOT use enableKeyboardOnTap — its
+  // keyboard should pop up automatically after every scan (set via
+  // inputmode="numeric" in the HTML), so quantity can be typed by tapping.
+  // Scanning the next item straight into this field still works exactly
+  // the same either way — see the barcode-in-qty-field detection below.
 
   // Scanner types UPC + Enter → look up product
   upcInput.addEventListener('keydown', (e) => {
