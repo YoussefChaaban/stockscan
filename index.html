@@ -471,7 +471,7 @@
             <div class="order-qty-label">Order Qty</div>
             <div class="qty-stepper">
               <button onclick="adjustQty(-1)">−</button>
-              <input type="text" id="order-qty" value="1" inputmode="none" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+              <input type="text" id="order-qty" value="1" inputmode="none" autocomplete="off" readonly />
               <button onclick="adjustQty(1)">+</button>
             </div>
           </div>
@@ -1225,27 +1225,52 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Type quantity + Enter → save to vendor sheet, reset for next scan.
-  // BUT: since the qty field auto-focuses after every lookup, scanning the
+  // The qty field is `readonly` (the most reliable way to block the native
+  // Android keyboard across devices — inputmode alone isn't honored by
+  // every WebView). readonly still lets keydown events fire normally, so
+  // we manually rebuild what's "typed" from those events ourselves, then
+  // reflect it into the field's display value via script (readonly only
+  // blocks the browser's own default typing behavior, not JS assignment).
+  //
+  // Since the qty field auto-focuses after every lookup, scanning the
   // *next* item right away (without touching quantity) sends that barcode
-  // into this field instead of the UPC field. Detect that (a real quantity
-  // is never 6+ digits; a UPC always is) and treat it as "scan next item":
-  // commit whatever's currently shown at its default qty, then look up the
-  // newly scanned code — so rapid back-to-back scanning just works.
-  qtyInput.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
+  // into this same field instead of the UPC field. Detect that (a real
+  // quantity is never 6+ digits; a UPC always is) and treat it as "scan
+  // next item": commit whatever's currently shown at its default qty,
+  // then look up the newly scanned code — so rapid back-to-back scanning
+  // just works, whether or not the field ever visually looked focused.
+  let qtyScanBuffer = '';
 
-    const raw = qtyInput.value.trim();
-    if (/^\d{6,}$/.test(raw)) {
-      const nextUPC = raw;
-      qtyInput.value = '1';
-      const payload = buildOrderPayload(); // reads the qty field we just reset to '1'
-      if (payload) queueOrder(payload);
-      lookupUPC(nextUPC); // move on immediately — no waiting on the save
+  qtyInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const raw = qtyScanBuffer || qtyInput.value.trim();
+      qtyScanBuffer = '';
+
+      if (/^\d{6,}$/.test(raw)) {
+        const nextUPC = raw;
+        qtyInput.value = '1';
+        const payload = buildOrderPayload(); // reads the qty field we just reset to '1'
+        if (payload) queueOrder(payload);
+        lookupUPC(nextUPC); // move on immediately — no waiting on the save
+        return;
+      }
+
+      qtyInput.value = raw || '1';
+      submitOrder();
       return;
     }
 
-    submitOrder();
+    if (/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      qtyScanBuffer = qtyFresh ? e.key : (qtyScanBuffer + e.key);
+      qtyFresh = false;
+      qtyInput.value = qtyScanBuffer;
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      qtyScanBuffer = qtyScanBuffer.slice(0, -1);
+      qtyInput.value = qtyScanBuffer;
+    }
   });
 
   // Start loading the catalog the instant the page opens — runs in the
